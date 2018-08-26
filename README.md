@@ -19,7 +19,13 @@ the file, you can use the following command to run it:
 ## Citation
 If you use this code for your research, please consider citing:
 ```
- 
+ @inproceedings{cao2018hashgan,
+  title={HashGAN: Deep Learning to Hash with Pair Conditional Wasserstein GAN},
+  author={Cao, Yue and Liu, Bin and Long, Mingsheng and Wang, Jianmin and KLiss, MOE},
+  booktitle={Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition},
+  pages={1287--1296},
+  year={2018}
+}
 ```
 
 ## Contact
