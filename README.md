@@ -1,7 +1,7 @@
 Improved Training of Wasserstein GANs
 =====================================
 
-Code for ["HashGAN: Deep Learning to Hash with Pair Conditional Wasserstein GAN"](http://ise.thss.tsinghua.edu.cn/~mlong/doc/hashgan-cvpr18.pdf).
+Code for ["HashGAN: Deep Learning to Hash with Pair Conditional Wasserstein GAN"](http://openaccess.thecvf.com/content_cvpr_2018/papers/Cao_HashGAN_Deep_Learning_CVPR_2018_paper.pdf).
 
 
 ## Prerequisites
