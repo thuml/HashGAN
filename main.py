@@ -46,7 +46,7 @@ else:
     ITERS = 100000  # How many iterations to train for
     ARCHITECTURE = "GOOD"  # GOOD, NROM
 
-USE_DATASET = "nuswide81"  # "cifar10", "nuswide81", "coco"
+USE_DATASET = "cifar10"  # "cifar10", "nuswide81", "coco"
 if USE_DATASET == "cifar10":
     import dataset.cifar10 as dataset
 
