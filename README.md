@@ -9,6 +9,25 @@ Code for ["HashGAN: Deep Learning to Hash with Pair Conditional Wasserstein GAN"
 - Python2, NumPy, TensorFlow, SciPy, Matplotlib
 - A recent NVIDIA GPU
 
+## Data Preparation
+In `data_list/` folder, we give three examples to show how to prepare image training data. If you want to add other datasets as the input, you need to prepare `train.txt`, `test.txt`, `database.txt` and `database_nolabel.txt` as CIFAR-10 dataset.
+
+We have put the whole cifar10 dataset including the images and data list in the [release page](https://github.com/thulab/DeepHash/releases/download/v0.1/cifar10.zip). You can directly download it and unzip to data/cifar10 folder.
+
+Make sure the tree of `/path/to/project/data/cifar10` looks like this:
+
+```
+.
+|-- database.txt
+|-- database_nolabel.txt
+|-- test
+|-- test.txt
+|-- train
+`-- train.txt
+```
+
+If you need run on NUSWIDE_81 and COCO, we recommend you to follow https://github.com/thuml/HashNet/tree/master/pytorch#datasets to prepare NUSWIDE_81 and COCO images.
+
 ## Models
 
 Configuration for th models is specified in a list of constants at the top of
