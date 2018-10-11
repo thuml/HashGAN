@@ -12,7 +12,7 @@ Code for ["HashGAN: Deep Learning to Hash with Pair Conditional Wasserstein GAN"
 ## Data Preparation
 In `data_list/` folder, we give three examples to show how to prepare image training data. If you want to add other datasets as the input, you need to prepare `train.txt`, `test.txt`, `database.txt` and `database_nolabel.txt` as CIFAR-10 dataset.
 
-We have put the whole cifar10 dataset including the images and data list in the [release page](https://github.com/thulab/DeepHash/releases/download/v0.1/cifar10.zip). You can directly download it and unzip to data/cifar10 folder.
+You can download the whole cifar10 dataset including the images and data list from [here](https://github.com/thulab/DeepHash/releases/download/v0.1/cifar10.zip), and unzip it to data/cifar10 folder.
 
 Make sure the tree of `/path/to/project/data/cifar10` looks like this:
 
