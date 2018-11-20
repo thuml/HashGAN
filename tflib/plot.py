@@ -1,12 +1,9 @@
-import matplotlib
-import numpy as np
 import collections
-import pickle as pickle
 import os
+import pickle as pickle
 
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-
+import numpy as np
 
 _since_beginning = collections.defaultdict(lambda: {})
 _since_last_flush = collections.defaultdict(lambda: {})

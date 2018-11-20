@@ -1,3 +1,4 @@
+from .tower_grad import average_gradients
 import locale
 
 import tensorflow as tf
@@ -6,6 +7,18 @@ locale.setlocale(locale.LC_ALL, '')
 
 _params = {}
 _param_aliases = {}
+
+
+def preprocess_resize_scale_img(inputs, WIDTH_HEIGHT):
+    img = (inputs + 1.) * 255.99 / 2
+    reshaped_image = tf.cast(img, tf.float32)
+    reshaped_image = tf.reshape(
+        reshaped_image, [-1, 3, WIDTH_HEIGHT, WIDTH_HEIGHT])
+
+    transpose_image = tf.transpose(reshaped_image, perm=[0, 2, 3, 1])
+    resized_image = tf.image.resize_bilinear(transpose_image, [256, 256])
+
+    return resized_image
 
 
 def param(name, *args, **kwargs):
@@ -37,86 +50,3 @@ def param(name, *args, **kwargs):
 
 def params_with_name(name):
     return [p for n, p in list(_params.items()) if name in n]
-
-
-def delete_all_params():
-    _params.clear()
-
-
-def alias_params(replace_dict):
-    for old, new in list(replace_dict.items()):
-        # print "aliasing {} to {}".format(old,new)
-        _param_aliases[old] = new
-
-
-def delete_param_aliases():
-    _param_aliases.clear()
-
-
-# def search(node, critereon):
-#     """
-#     Traverse the Theano graph starting at `node` and return a list of all nodes
-#     which match the `critereon` function. When optimizing a cost function, you
-#     can use this to get a list of all of the trainable params in the graph, like
-#     so:
-
-#     `lib.search(cost, lambda x: hasattr(x, "param"))`
-#     """
-
-#     def _search(node, critereon, visited):
-#         if node in visited:
-#             return []
-#         visited.add(node)
-
-#         results = []
-#         if isinstance(node, T.Apply):
-#             for inp in node.inputs:
-#                 results += _search(inp, critereon, visited)
-#         else: # Variable node
-#             if critereon(node):
-#                 results.append(node)
-#             if node.owner is not None:
-#                 results += _search(node.owner, critereon, visited)
-#         return results
-
-#     return _search(node, critereon, set())
-
-# def print_params_info(params):
-#     """Print information about the parameters in the given param set."""
-
-#     params = sorted(params, key=lambda p: p.name)
-#     values = [p.get_value(borrow=True) for p in params]
-#     shapes = [p.shape for p in values]
-#     print "Params for cost:"
-#     for param, value, shape in zip(params, values, shapes):
-#         print "\t{0} ({1})".format(
-#             param.name,
-#             ",".join([str(x) for x in shape])
-#         )
-
-#     total_param_count = 0
-#     for shape in shapes:
-#         param_count = 1
-#         for dim in shape:
-#             param_count *= dim
-#         total_param_count += param_count
-#     print "Total parameter count: {0}".format(
-#         locale.format("%d", total_param_count, grouping=True)
-#     )
-
-
-def print_model_settings(locals_):
-    print("Uppercase local vars:")
-    all_vars = [(k, v) for (k, v) in list(locals_.items()) if (
-            k.isupper() and k != 'T' and k != 'SETTINGS' and k != 'ALL_SETTINGS')]
-    all_vars = sorted(all_vars, key=lambda x: x[0])
-    for var_name, var_value in all_vars:
-        print("\t{}: {}".format(var_name, var_value))
-
-
-def print_model_settings_dict(settings):
-    print("Settings dict:")
-    all_vars = [(k, v) for (k, v) in list(settings.items())]
-    all_vars = sorted(all_vars, key=lambda x: x[0])
-    for var_name, var_value in all_vars:
-        print("\t{}: {}".format(var_name, var_value))

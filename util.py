@@ -5,6 +5,37 @@
 # -----------------------------------------------------------------------
 
 import numpy as np
+import locale
+
+
+def inf_gen(gen):
+    while True:
+        for images_iter_, labels_iter_ in gen():
+            return images_iter_, labels_iter_
+
+
+# compute param size
+def print_param_size(gen_gv, disc_gv):
+    print("computing param size")
+    for name, grads_and_vars in [('G', gen_gv), ('D', disc_gv)]:
+        print("{} Params:".format(name))
+        total_param_count = 0
+        for g, v in grads_and_vars:
+            shape = v.get_shape()
+            shape_str = ",".join([str(x) for x in v.get_shape()])
+
+            param_count = 1
+            for dim in shape:
+                param_count *= int(dim)
+            total_param_count += param_count
+
+            if g is None:
+                print("\t{} ({}) [no grad!]".format(v.name, shape_str))
+            else:
+                print("\t{} ({})".format(v.name, shape_str))
+        print("Total param count: {}".format(
+            locale.format("%d", total_param_count, grouping=True)
+        ))
 
 
 class Dataset(object):
@@ -150,7 +181,7 @@ class MAPs_CQ:
 
     def get_mAPs_SQD(self, database, query):
         all_rel = np.dot(np.dot(query.codes, self.C),
-                              np.dot(database.codes, self.C).T)
+                         np.dot(database.codes, self.C).T)
         ids = np.argsort(-all_rel, 1)
         APx = []
         query_labels = query.label

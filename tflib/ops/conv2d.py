@@ -3,26 +3,6 @@ import tflib as lib
 import numpy as np
 import tensorflow as tf
 
-_default_weightnorm = False
-
-
-def enable_default_weightnorm():
-    global _default_weightnorm
-    _default_weightnorm = True
-
-
-_weights_stdev = None
-
-
-def set_weights_stdev(weights_stdev):
-    global _weights_stdev
-    _weights_stdev = weights_stdev
-
-
-def unset_weights_stdev():
-    global _weights_stdev
-    _weights_stdev = None
-
 
 def Conv2D(
         name,
@@ -88,24 +68,16 @@ def Conv2D(
         else:  # Normalized init (Glorot & Bengio)
             filters_stdev = np.sqrt(2./(fan_in+fan_out))
 
-        if _weights_stdev is not None:
-            filter_values = uniform(
-                _weights_stdev,
-                (filter_size, filter_size, input_dim, output_dim)
-            )
-        else:
-            filter_values = uniform(
-                filters_stdev,
-                (filter_size, filter_size, input_dim, output_dim)
-            )
+        filter_values = uniform(
+            filters_stdev,
+            (filter_size, filter_size, input_dim, output_dim)
+        )
 
         # print "WARNING IGNORING GAIN"
         filter_values *= gain
 
         filters = lib.param(name+'.Filters', filter_values)
 
-        if weightnorm is None:
-            weightnorm = _default_weightnorm
         if weightnorm:
             norm_values = np.sqrt(
                 np.sum(np.square(filter_values), axis=(0, 1, 2)))

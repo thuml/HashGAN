@@ -43,9 +43,9 @@ def Batchnorm(name, axes, inputs, is_training=None, stats_iter=None, update_movi
             var = ((1. / batch_size) * var) + (((batch_size - 1.) / batch_size)
                                                * moving_variance)[None, :, None, None]
             bn = tf.nn.batch_normalization(inputs, mean, var,
-                                             offset[None, :, None, None],
-                                             scale[None, :, None, None],
-                                             1e-5)
+                                           offset[None, :, None, None],
+                                           scale[None, :, None, None],
+                                           1e-5)
             return bn, mean, var
 
             # Standard version
@@ -73,14 +73,10 @@ def Batchnorm(name, axes, inputs, is_training=None, stats_iter=None, update_movi
                     """Internal function forces updates moving_vars if is_training."""
                     float_stats_iter = tf.cast(stats_iter, tf.float32)
 
-                    update_moving_mean = tf.assign(moving_mean, ((
-                                                                         float_stats_iter / (
-                                                                             float_stats_iter + 1)) * moving_mean) + (
-                                                               (1 / (float_stats_iter + 1)) * batch_mean))
-                    update_moving_variance = tf.assign(moving_variance, ((
-                                                                                 float_stats_iter / (
-                                                                                     float_stats_iter + 1)) * moving_variance) + (
-                                                                   (1 / (float_stats_iter + 1)) * batch_var))
+                    alpha = float_stats_iter / (float_stats_iter + 1)
+                    update_moving_mean = tf.assign(moving_mean, (alpha * moving_mean) + (1 - alpha) * batch_mean)
+                    update_moving_variance = tf.assign(moving_variance,
+                                                       (alpha * moving_variance) + (1 - alpha) * batch_var)
 
                     with tf.control_dependencies([update_moving_mean, update_moving_variance]):
                         return tf.identity(outputs)
@@ -97,7 +93,7 @@ def Batchnorm(name, axes, inputs, is_training=None, stats_iter=None, update_movi
         shape = mean.get_shape().as_list()
         if 0 not in axes:
             print("WARNING ({}): didn't find 0 in axes, but not using separate BN params for each item in batch"
-                .format(name))
+                  .format(name))
             shape[0] = 1
         offset = lib.param(name + '.offset', np.zeros(shape, dtype='float32'))
         scale = lib.param(name + '.scale', np.ones(shape, dtype='float32'))

@@ -6,7 +6,7 @@ Code for ["HashGAN: Deep Learning to Hash with Pair Conditional Wasserstein GAN"
 
 ## Prerequisites
 
-- Python2, NumPy, TensorFlow, SciPy, Matplotlib
+- Python3, NumPy, TensorFlow, SciPy, Matplotlib
 - A recent NVIDIA GPU
 
 ## Data Preparation
@@ -29,6 +29,20 @@ Make sure the tree of `/path/to/project/data/cifar10` looks like this:
 If you need run on NUSWIDE_81 and COCO, we recommend you to follow https://github.com/thuml/HashNet/tree/master/pytorch#datasets to prepare NUSWIDE_81 and COCO images.
 
 ## Models
+### TODO
+
+- [ ] Pretrain model of Alexnet
+- [ ] pretrained G model
+- [ ] resume training
+- [ ] eval frequence & eval at last iter
+- [ ] training longger
+- [ ] refactor all 
+  - [ ] use config instead of constant
+  - [ ] use no split
+  - [ ] evaluate mode
+  - [ ] output dir which contains images, models, logs
+    - [ ] mkdir automatically
+- [ ] rerun all process on a fresh machine
 
 Configuration for th models is specified in a list of constants at the top of
 the file, you can use the following command to run it:
