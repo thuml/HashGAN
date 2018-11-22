@@ -106,3 +106,6 @@ venv.bak/
 images
 log.pkl
 .idea
+data
+output
+pretrained_models
