@@ -20,7 +20,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.client import device_lib
 
-import dataloader
+from dataloader import Dataloader
 import tflib as lib
 import tflib.plot
 import tflib.save_images
@@ -33,9 +33,9 @@ from config import config
 
 
 def main(cfg):
-    dataset = dataloader.__dict__[cfg.DATA.USE_DATASET]
     DEVICES = [x.name for x in device_lib.list_local_devices()
                if x.device_type == 'GPU']
+    dataloader = Dataloader(cfg.DATA.BATCH_SIZE, cfg.DATA.WIDTH_HEIGHT, cfg.DATA.DATA_ROOT)
 
     configProto = tf.ConfigProto()
     configProto.gpu_options.allow_growth = True
@@ -309,9 +309,8 @@ def main(cfg):
             lib.save_images.save_images(samples.reshape((100, 3, cfg.DATA.WIDTH_HEIGHT, cfg.DATA.WIDTH_HEIGHT)),
                                         '{}/samples_{}.png'.format(cfg.DATA.IMAGE_DIR, frame))
 
-        train_gen, unlabel_train_gen, dev_gen = dataset.load(cfg.TRAIN.BATCH_SIZE, cfg.DATA.WIDTH_HEIGHT)
-        gen = util.inf_gen(train_gen)
-        unlabel_gen = util.inf_gen(unlabel_train_gen)
+        gen = dataloader.inf_gen(dataloader.train_gen)
+        unlabel_gen = dataloader.inf_gen(dataloader.unlabeled_db_gen)
 
         util.print_param_size(gen_gv, disc_gv)
 
@@ -378,19 +377,18 @@ def main(cfg):
 
             # calculate mAP score w.r.t all db data every 10000 config.TRAIN.ITERS
             if (iteration + 1) % 10000 == 0:
-                _db_gen, _test_gen = dataset.load_val(cfg.TRAIN.BATCH_SIZE, cfg.DATA.WIDTH_HEIGHT)
                 db_output = []
                 db_labels = []
                 test_output = []
                 test_labels = []
-                for images, _labels in _test_gen():
-                    _disc_acgan_output, __cost = session.run([disc_real_acgan, disc_real_acgan_cost],
+                for images, _labels in dataloader.test_gen():
+                    _disc_acgan_output, _ = session.run([disc_real_acgan, disc_real_acgan_cost],
                                                              feed_dict={all_real_data_int: images,
                                                                         all_real_labels: _labels})
                     test_output.append(_disc_acgan_output)
                     test_labels.append(_labels)
 
-                for images, _labels in _db_gen():
+                for images, _labels in dataloader.db_gen():
                     _disc_acgan_output, _ = session.run([disc_real_acgan, disc_real_acgan_cost],
                                                         feed_dict={all_real_data_int: images, all_real_labels: _labels})
                     db_output.append(_disc_acgan_output)

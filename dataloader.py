@@ -87,43 +87,65 @@ class Dataset(object):
         return np.asarray(self._label)
 
 
-def data_generator(batch_size, width_height, file_name):
-    _dataset = Dataset(file_name, True, width_height)
+class Dataloader(object):
 
-    def get_epoch():
+    def __init__(self, batch_size, width_height, data_root):
+        self.batch_size = batch_size
+        self.width_height = width_height
+        self.data_root = data_root
+    
+    def data_generator(self, split):
+        file_name = os.path.join(self.data_root, split + '.txt')
+        _dataset = Dataset(file_name, True, self.width_height)
 
-        _index_in_epoch = 0
-        _perm = np.arange(_dataset.n_samples)
-        np.random.shuffle(_perm)
-        for _ in range(int(math.ceil(_dataset.n_samples / batch_size))):
-            start = _index_in_epoch
-            _index_in_epoch += batch_size
-            # finish one epoch
-            if _index_in_epoch > _dataset.n_samples:
-                data, label = _dataset.data(_perm[start:])
-                data1, label1 = _dataset.data(
-                    _perm[:_index_in_epoch - _dataset.n_samples])
-                data = np.concatenate([data, data1], axis=0)
-                label = np.concatenate([label, label1], axis=0)
-            else:
-                end = _index_in_epoch
-                data, label = _dataset.data(_perm[start:end])
+        def get_epoch():
 
-            # n*h*w*c -> n*c*h*w
-            data = np.transpose(data, (0, 3, 1, 2))
-            # bgr -> rgb
-            data = data[:, ::-1, :, :]
-            data = np.reshape(data, (batch_size, -1))
-            yield (data, label)
+            _index_in_epoch = 0
+            _perm = np.arange(_dataset.n_samples)
+            np.random.shuffle(_perm)
+            for _ in range(int(math.ceil(_dataset.n_samples / self.batch_size))):
+                start = _index_in_epoch
+                _index_in_epoch += self.batch_size
+                # finish one epoch
+                if _index_in_epoch > _dataset.n_samples:
+                    data, label = _dataset.data(_perm[start:])
+                    data1, label1 = _dataset.data(
+                        _perm[:_index_in_epoch - _dataset.n_samples])
+                    data = np.concatenate([data, data1], axis=0)
+                    label = np.concatenate([label, label1], axis=0)
+                else:
+                    end = _index_in_epoch
+                    data, label = _dataset.data(_perm[start:end])
 
-    return get_epoch
+                # n*h*w*c -> n*c*h*w
+                data = np.transpose(data, (0, 3, 1, 2))
+                # bgr -> rgb
+                data = data[:, ::-1, :, :]
+                data = np.reshape(data, (self.batch_size, -1))
+                yield (data, label)
 
+        return get_epoch
 
-def load_train(batch_size, width_height, data_root):
-    return [data_generator(batch_size, width_height, os.path.join(data_root, split + '.txt'))
-            for split in ["train", "database_nolabel", "test"]]
+    @property
+    def train_gen(self):
+        return self.data_generator('train')
 
-def load_val(batch_size, width_height, data_root):
-    return [data_generator(batch_size, width_height, os.path.join(data_root, split + '.txt'))
-            for split in ["database", "test.txt"]]
+    @property
+    def test_gen(self):
+        return self.data_generator('test')
 
+    @property
+    def db_gen(self):
+        return self.data_generator('database')
+
+    @property
+    def unlabeled_db_gen(self):
+        return self.data_generator('database_nolabel')
+
+    @staticmethod
+    def inf_gen(gen):
+        def generator():
+            while True:
+                for images_iter_, labels_iter_ in gen():
+                    return images_iter_, labels_iter_
+        return generator

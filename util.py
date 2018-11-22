@@ -8,14 +8,6 @@ import numpy as np
 import locale
 
 
-def inf_gen(gen):
-    def generator():
-        while True:
-            for images_iter_, labels_iter_ in gen():
-                return images_iter_, labels_iter_
-    return generator
-
-
 # compute param size
 def print_param_size(gen_gv, disc_gv):
     print("computing param size")

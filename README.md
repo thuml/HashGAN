@@ -33,15 +33,15 @@ If you need run on NUSWIDE_81 and COCO, we recommend you to follow https://githu
 
 - [ ] Pretrain model of Alexnet
 - [ ] pretrained G model
-- [ ] resume training
 - [ ] eval frequence & eval at last iter
-- [ ] training longger
 - [ ] refactor all 
   - [ ] use config instead of constant
   - [ ] use no split
   - [ ] evaluate mode
   - [ ] output dir which contains images, models, logs
     - [ ] mkdir automatically
+- [ ] training longger
+- [ ] resume training
 - [ ] rerun all process on a fresh machine
 
 Configuration for th models is specified in a list of constants at the top of
