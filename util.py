@@ -9,9 +9,11 @@ import locale
 
 
 def inf_gen(gen):
-    while True:
-        for images_iter_, labels_iter_ in gen():
-            return images_iter_, labels_iter_
+    def generator():
+        while True:
+            for images_iter_, labels_iter_ in gen():
+                return images_iter_, labels_iter_
+    return generator
 
 
 # compute param size

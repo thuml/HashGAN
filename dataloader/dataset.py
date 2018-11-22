@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import os
 import math
 import cv2
 import numpy as np
@@ -116,3 +117,13 @@ def data_generator(batch_size, width_height, file_name):
             yield (data, label)
 
     return get_epoch
+
+
+def load_train(batch_size, width_height, data_root):
+    return [data_generator(batch_size, width_height, os.path.join(data_root, split + '.txt'))
+            for split in ["train", "database_nolabel", "test"]]
+
+def load_val(batch_size, width_height, data_root):
+    return [data_generator(batch_size, width_height, os.path.join(data_root, split + '.txt'))
+            for split in ["database", "test.txt"]]
+

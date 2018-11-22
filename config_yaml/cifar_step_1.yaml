@@ -1,0 +1,2 @@
+DATA:
+    USE_DATASET: "cifar10"

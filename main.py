@@ -20,7 +20,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.client import device_lib
 
-import dataset as ds
+import dataloader
 import tflib as lib
 import tflib.plot
 import tflib.save_images
@@ -29,11 +29,11 @@ from tflib import preprocess_resize_scale_img
 from tflib import average_gradients
 from tflib.losses import cross_entropy
 from tflib.architecture import Generator, Discriminator
-from .config import config
+from config import config
 
 
 def main(cfg):
-    dataset = ds.__dict__[cfg.DATA.USE_DATASET]
+    dataset = dataloader.__dict__[cfg.DATA.USE_DATASET]
     DEVICES = [x.name for x in device_lib.list_local_devices()
                if x.device_type == 'GPU']
 
@@ -194,14 +194,11 @@ def main(cfg):
 
                     differences = fake_data - real_data
                     interpolates = real_data + (alpha * differences)
-                    gradients = tf.gradients(Discriminator(
-                        interpolates, cfg=cfg)[0], [interpolates])[0]
+                    gradients = tf.gradients(Discriminator(interpolates, cfg=cfg)[0], [interpolates])[0]
                     if cfg.MODEL.ARCHITECTURE == "ALEXNET":
-                        slopes = tf.sqrt(tf.reduce_sum(
-                            tf.square(gradients), reduction_indices=[1, 2, 3]))
+                        slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=[1, 2, 3]))
                     else:
-                        slopes = tf.sqrt(tf.reduce_sum(
-                            tf.square(gradients), reduction_indices=[1]))
+                        slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=[1]))
                     gradient_penalty = 10 * tf.reduce_mean((slopes - 1.) ** 2)
                     disc_costs.append(gradient_penalty)
                     disc_costs_gradient_penalty.append(gradient_penalty)
@@ -279,7 +276,7 @@ def main(cfg):
                 real_labels = labels_splits[i]
 
                 _, _disc_real_acgan = Discriminator(
-                    real_data, "val")
+                    real_data, stage="val", cfg=cfg)
                 disc_real_acgan.append(_disc_real_acgan)
 
                 disc_real_acgan_cost_t.append(cross_entropy(
@@ -312,19 +309,15 @@ def main(cfg):
             lib.save_images.save_images(samples.reshape((100, 3, cfg.DATA.WIDTH_HEIGHT, cfg.DATA.WIDTH_HEIGHT)),
                                         '{}/samples_{}.png'.format(cfg.DATA.IMAGE_DIR, frame))
 
-        train_gen, unlabel_train_gen, dev_gen = dataset.load(
-            cfg.TRAIN.BATCH_SIZE, cfg.DATA.WIDTH_HEIGHT)
-
-        inf_train_gen = util.inf_gen(train_gen)
-        inf_unlabel_train_gen = util.inf_gen(unlabel_train_gen)
+        train_gen, unlabel_train_gen, dev_gen = dataset.load(cfg.TRAIN.BATCH_SIZE, cfg.DATA.WIDTH_HEIGHT)
+        gen = util.inf_gen(train_gen)
+        unlabel_gen = util.inf_gen(unlabel_train_gen)
 
         util.print_param_size(gen_gv, disc_gv)
 
         print("initializing global variables")
         session.run(tf.global_variables_initializer())
 
-        gen = inf_train_gen()
-        unlabel_gen = inf_unlabel_train_gen()
 
         if cfg.TRAIN.USE_PRETRAIN:
             saver = tf.train.Saver(lib.params_with_name('Generator'))
@@ -337,7 +330,7 @@ def main(cfg):
 
             if iteration > 0:
                 if cfg.TRAIN.G_LR != 0:
-                    _data, _labels = next(gen)
+                    _data, _labels = gen()
                     _ = session.run([gen_train_op], feed_dict={
                         all_real_data_int: _data,
                         all_real_labels: _labels,
@@ -345,8 +338,8 @@ def main(cfg):
                     })
 
             for i in range(cfg.TRAIN.N_CRITIC):
-                _data, _labels = next(gen)
-                _unlabel_data, _unlabel_labels = next(unlabel_gen)
+                _data, _labels = gen()
+                _unlabel_data, _unlabel_labels = unlabel_gen()
                 if cfg.TRAIN.WGAN_SCALE == 0:
                     _disc_cost, _disc_acgan, _disc_acgan_r_r, _ = session.run(
                         [disc_cost, disc_acgan, disc_acgan_real_real,
@@ -447,7 +440,7 @@ if __name__ == "__main__":
     config.freeze()
     pprint(config)
 
-    os.makedirs(config.DATA.IMAGE_DI, exist_ok=True)
+    os.makedirs(config.DATA.IMAGE_DIR, exist_ok=True)
     os.makedirs(config.DATA.MODEL_DIR, exist_ok=True)
     os.makedirs(config.DATA.LOG_DIR, exist_ok=True)
 

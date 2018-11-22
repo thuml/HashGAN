@@ -1,4 +1,4 @@
-from yacs.config import CfgNode as CN 
+from yacs.config import CfgNode as CN
 import os.path as osp
 
 _C = CN()
@@ -13,6 +13,7 @@ _C.MODEL.HASH_DIM = 64
 
 _C.DATA = CN()
 _C.DATA.USE_DATASET = "cifar10"  # "cifar10", "nuswide81", "coco"
+_C.DATA.DATA_ROOT = "./data/cifar10"  # "cifar10", "nuswide81", "coco"
 _C.DATA.LABEL_DIM = 10
 _C.DATA.DB_SIZE = 54000
 _C.DATA.TEST_SIZE = 1000
@@ -28,7 +29,7 @@ _C.DATA.LOG_DIR = osp.join(_C.DATA.OUTPUT_DIR, "logs")
 _C.TRAIN = CN()
 _C.TRAIN.USE_PRETRAIN = False
 _C.TRAIN.BATCH_SIZE = 64
-_C.TRAIN.ITERS = 10000
+_C.TRAIN.ITERS = 100000
 _C.TRAIN.CROSS_ENTROPY_ALPHA = 5
 _C.TRAIN.LR = 1e-4  # Initial learning rate
 _C.TRAIN.G_LR = 1e-4  # 1e-4
@@ -37,9 +38,16 @@ _C.TRAIN.N_CRITIC = 5  # Critic steps per generator steps
 _C.TRAIN.SAVE_FREQUENCY = 20000  # How frequently to save model
 _C.TRAIN.ACGAN_SCALE = 1.0
 _C.TRAIN.ACGAN_SCALE_G = 0.1
-_C.TRAIN.WGAN_SCALE = 1.0  
+_C.TRAIN.WGAN_SCALE = 1.0
 _C.TRAIN.WGAN_SCALE_G = 1.0
 _C.TRAIN.NORMED_CROSS_ENTROPY = True
 _C.TRAIN.FAKE_RATIO = 1.0
 
 config = _C
+
+
+def update_and_inference(cfg_file):
+    config.merge_from_file(args.cfg)
+
+    config.freeze()
+    return c

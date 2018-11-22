@@ -145,7 +145,7 @@ def oldDiscriminator(inputs, cfg):
         'Discriminator.Output', cfg.MODEL.DIM_D, 1, output)
     output_wgan = tf.reshape(output_wgan, [-1])
     output_acgan = lib.ops.linear.Linear(
-        'Discriminator.ACGANOutput', cfg.MODEL.DIM_D, cfg.DIM.HASH_DIM, output)
+        'Discriminator.ACGANOutput', cfg.MODEL.DIM_D, cfg.MODEL.HASH_DIM, output)
     output_acgan = tf.nn.tanh(output_acgan)
     return output_wgan, output_acgan
 
@@ -208,7 +208,7 @@ def AlexnetDiscriminator(inputs, cfg, stage="train"):
                             encoding='latin1').item())
 
     if inputs.shape[1] != 256:
-        inputs = preprocess_resize_scale_img(inputs, cfg)
+        inputs = preprocess_resize_scale_img(inputs, cfg.DATA.WIDTH_HEIGHT)
 
     reshaped_image = inputs
     # reshaped_image = tf.reshape(reshaped_image,[BATCH_SIZE, 256 , 256, 3])
@@ -392,7 +392,7 @@ def AlexnetDiscriminator(inputs, cfg, stage="train"):
     # FC8
     # Output output_dim
     fc8 = lib.ops.linear.Linear(
-        'Discriminator.ACGANOutput', 4096, cfg.DIM.HASH_DIM, fc7)
+        'Discriminator.ACGANOutput', 4096, cfg.MODEL.HASH_DIM, fc7)
     if stage == "train":
         output = tf.nn.tanh(fc8)
     else:
