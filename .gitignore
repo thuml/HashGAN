@@ -109,3 +109,5 @@ log.pkl
 data
 output
 pretrained_models
+
+*.swp
