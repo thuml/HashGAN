@@ -69,7 +69,7 @@ class Model(object):
         disc_wgan_all, disc_acgan_all = discriminator(all_data, cfg=self.cfg)
 
         # disciminator wgan loss
-        self.cost_disc_wgan_l = tf.reduce_mean(disc_wgan_all[:pos_middle]) - tf.reduce_mean(disc_wgan_all[pos_middle:])
+        self.cost_disc_wgan_l = tf.reduce_mean(disc_wgan_all[pos_middle:]) - tf.reduce_mean(disc_wgan_all[:pos_middle])
         self.cost_disc_wgan_gp = self.gradient_penalty(all_data[:pos_middle], all_data[pos_middle:])
         self.cost_disc_wgan = self.cost_disc_wgan_l + 10 * self.cost_disc_wgan_gp
 
@@ -102,7 +102,7 @@ class Model(object):
         ])
 
         # generator loss
-        self.cost_gen_wgan = - tf.reduce_mean(disc_wgan_all[:pos_middle])
+        self.cost_gen_wgan = - tf.reduce_mean(disc_wgan_all[pos_middle:])
         self.cost_gen_acgan = self.cost_disc_acgan_fr
         self.cost_gen = self.cfg.TRAIN.WGAN_SCALE_G * self.cost_gen_wgan \
                         + self.cfg.TRAIN.ACGAN_SCALE_G * self.cost_gen_acgan
