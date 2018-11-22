@@ -8,7 +8,9 @@ DATA:
     TEST_SIZE: 1000
     WIDTH_HEIGHT: 32
     OUTPUT_DIM: 3072 # Number of pixels (32*32*3)
-    MAP_R: 54000    
+    MAP_R: 54000
+    LIST_ROOT: "./data_list/cifar10"
+    DATA_ROOT: "./data/cifar10"
     OUTPUT_DIR: "./output/cifar10_finetune"
     IMAGE_DIR: "./output/cifar10_finetune/images"
     MODEL_DIR: "./output/cifar10_finetune/models"

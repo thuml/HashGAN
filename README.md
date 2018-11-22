@@ -31,18 +31,16 @@ If you need run on NUSWIDE_81 and COCO, we recommend you to follow https://githu
 ## Models
 ### TODO
 
-- [ ] Pretrain model of Alexnet
-- [ ] pretrained G model
-- [ ] eval frequence & eval at last iter
-- [ ] refactor all 
-  - [ ] use config instead of constant
-  - [ ] use no split
+- [ ] code refactor
   - [ ] evaluate mode
-  - [ ] output dir which contains images, models, logs
-    - [ ] mkdir automatically
-- [ ] training longger
-- [ ] resume training
-- [ ] rerun all process on a fresh machine
+  - [ ] resume training
+  - [ ] tensorboard
+- [ ] experiment
+  - [ ] training longger
+- [ ] code release
+  - [ ] pretrained G model  
+  - [ ] Pretrain model of Alexnet
+  - [ ] rerun all process on a fresh machine
 
 Configuration for th models is specified in a list of constants at the top of
 the file, you can use the following command to run it:

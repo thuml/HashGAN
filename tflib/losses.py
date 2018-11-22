@@ -8,7 +8,7 @@ def cross_entropy(u, label_u, v=None, label_v=None, alpha=1, partial=False, norm
     if v is None:
         v = u
     else:
-        # v is the fake data, which cannot influence real data
+        # v is the fake data_list, which cannot influence real data_list
         if partial is True:
             u = tf.stop_gradient(u)
 

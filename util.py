@@ -63,7 +63,7 @@ class Dataset(object):
             if self._train:
                 # Training stage need repeating get batch
                 self._epochs_complete += 1
-                # Shuffle the data
+                # Shuffle the data_list
                 np.random.shuffle(self._perm)
                 # Start next epoch
                 start = 0
@@ -83,7 +83,7 @@ class Dataset(object):
         # Another epoch finish
         if self._index_in_epoch > self.n_samples:
             if self._train:
-                # Shuffle the data
+                # Shuffle the data_list
                 np.random.shuffle(self._perm)
                 # Start next epoch
                 start = 0

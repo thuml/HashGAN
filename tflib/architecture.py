@@ -10,67 +10,67 @@ import tflib.ops.linear
 from tflib import preprocess_resize_scale_img
 
 
-def Normalize(name, inputs):
+def normalize(name, inputs):
     """This is messy, but basically it chooses between batchnorm, layernorm,
     their conditional variants, or nothing, depending on the value of `name` and
     the global hyperparam flags."""
 
-    if 'Generator' in name:
-        return lib.ops.batchnorm.Batchnorm(name, [0, 2, 3], inputs, fused=True)
+    if 'generator' in name:
+        return lib.ops.batchnorm.batch_norm(name, [0, 2, 3], inputs, fused=True)
     else:
         return inputs
 
 
-def ConvMeanPool(name, input_dim, output_dim, filter_size, inputs, he_init=True, biases=True):
-    output = lib.ops.conv2d.Conv2D(
+def conv_mean_pool(name, input_dim, output_dim, filter_size, inputs, he_init=True, biases=True):
+    output = lib.ops.conv2d.conv2D(
         name, input_dim, output_dim, filter_size, inputs, he_init=he_init, biases=biases)
     output = tf.add_n(
         [output[:, :, ::2, ::2], output[:, :, 1::2, ::2], output[:, :, ::2, 1::2], output[:, :, 1::2, 1::2]]) / 4.
     return output
 
 
-def MeanPoolConv(name, input_dim, output_dim, filter_size, inputs, he_init=True, biases=True):
+def mean_pool_conv(name, input_dim, output_dim, filter_size, inputs, he_init=True, biases=True):
     output = inputs
     output = tf.add_n(
         [output[:, :, ::2, ::2], output[:, :, 1::2, ::2], output[:, :, ::2, 1::2], output[:, :, 1::2, 1::2]]) / 4.
-    output = lib.ops.conv2d.Conv2D(
+    output = lib.ops.conv2d.conv2D(
         name, input_dim, output_dim, filter_size, output, he_init=he_init, biases=biases)
     return output
 
 
-def UpsampleConv(name, input_dim, output_dim, filter_size, inputs, he_init=True, biases=True):
+def upsample_conv(name, input_dim, output_dim, filter_size, inputs, he_init=True, biases=True):
     output = inputs
     output = tf.concat([output, output, output, output], axis=1)
     output = tf.transpose(output, [0, 2, 3, 1])
     output = tf.depth_to_space(output, 2)
     output = tf.transpose(output, [0, 3, 1, 2])
-    output = lib.ops.conv2d.Conv2D(
+    output = lib.ops.conv2d.conv2D(
         name, input_dim, output_dim, filter_size, output, he_init=he_init, biases=biases)
     return output
 
 
-def ResidualBlock(name, input_dim, output_dim, filter_size, inputs, resample=None):
+def residual_block(name, input_dim, output_dim, filter_size, inputs, resample=None):
     """
     resample: None, 'down', or 'up'
     """
     if resample == 'down':
         conv_1 = functools.partial(
-            lib.ops.conv2d.Conv2D, input_dim=input_dim, output_dim=input_dim)
+            lib.ops.conv2d.conv2D, input_dim=input_dim, output_dim=input_dim)
         conv_2 = functools.partial(
-            ConvMeanPool, input_dim=input_dim, output_dim=output_dim)
-        conv_shortcut = ConvMeanPool
+            conv_mean_pool, input_dim=input_dim, output_dim=output_dim)
+        conv_shortcut = conv_mean_pool
     elif resample == 'up':
         conv_1 = functools.partial(
-            UpsampleConv, input_dim=input_dim, output_dim=output_dim)
-        conv_shortcut = UpsampleConv
+            upsample_conv, input_dim=input_dim, output_dim=output_dim)
+        conv_shortcut = upsample_conv
         conv_2 = functools.partial(
-            lib.ops.conv2d.Conv2D, input_dim=output_dim, output_dim=output_dim)
+            lib.ops.conv2d.conv2D, input_dim=output_dim, output_dim=output_dim)
     elif resample is None:
-        conv_shortcut = lib.ops.conv2d.Conv2D
+        conv_shortcut = lib.ops.conv2d.conv2D
         conv_1 = functools.partial(
-            lib.ops.conv2d.Conv2D, input_dim=input_dim, output_dim=output_dim)
+            lib.ops.conv2d.conv2D, input_dim=input_dim, output_dim=output_dim)
         conv_2 = functools.partial(
-            lib.ops.conv2d.Conv2D, input_dim=output_dim, output_dim=output_dim)
+            lib.ops.conv2d.conv2D, input_dim=output_dim, output_dim=output_dim)
     else:
         raise Exception('invalid resample value')
 
@@ -81,129 +81,129 @@ def ResidualBlock(name, input_dim, output_dim, filter_size, inputs, resample=Non
                                  he_init=False, biases=True, inputs=inputs)
 
     output = inputs
-    output = Normalize(name + '.N1', output)
+    output = normalize(name + '.N1', output)
     output = tf.nn.relu(output)
     output = conv_1(name + '.Conv1', filter_size=filter_size, inputs=output)
-    output = Normalize(name + '.N2', output)
+    output = normalize(name + '.N2', output)
     output = tf.nn.relu(output)
     output = conv_2(name + '.Conv2', filter_size=filter_size, inputs=output)
 
     return shortcut + output
 
 
-def OptimizedResBlockDisc1(inputs, cfg):
+def optimized_res_block_disc1(inputs, cfg):
     conv_1 = functools.partial(
-        lib.ops.conv2d.Conv2D, input_dim=3, output_dim=cfg.MODEL.DIM_D)
-    conv_2 = functools.partial(ConvMeanPool, input_dim=cfg.MODEL.DIM_D, output_dim=cfg.MODEL.DIM_D)
-    conv_shortcut = MeanPoolConv
-    shortcut = conv_shortcut('Discriminator.1.Shortcut', input_dim=3, output_dim=cfg.MODEL.DIM_D,
+        lib.ops.conv2d.conv2D, input_dim=3, output_dim=cfg.MODEL.DIM_D)
+    conv_2 = functools.partial(conv_mean_pool, input_dim=cfg.MODEL.DIM_D, output_dim=cfg.MODEL.DIM_D)
+    conv_shortcut = mean_pool_conv
+    shortcut = conv_shortcut('discriminator.1.Shortcut', input_dim=3, output_dim=cfg.MODEL.DIM_D,
                              filter_size=1, he_init=False, biases=True, inputs=inputs)
 
     output = inputs
-    output = conv_1('Discriminator.1.Conv1', filter_size=3, inputs=output)
+    output = conv_1('discriminator.1.Conv1', filter_size=3, inputs=output)
     output = tf.nn.relu(output)
-    output = conv_2('Discriminator.1.Conv2', filter_size=3, inputs=output)
+    output = conv_2('discriminator.1.Conv2', filter_size=3, inputs=output)
     return shortcut + output
 
 
-def oldGenerator(n_samples, labels, cfg, noise=None):
+def old_generator(n_samples, labels, cfg, noise=None):
     if noise is None:
         noise = tf.random_normal([n_samples, 256])
 
     # concat noise with label
     noise = tf.concat([tf.cast(labels, tf.float32), tf.slice(
         noise, [0, cfg.DATA.LABEL_DIM], [-1, -1])], 1)
-    output = lib.ops.linear.Linear(
-        'Generator.Input', 256, 4 * 4 * cfg.MODEL.DIM_G, noise)
+    output = lib.ops.linear.linear(
+        'generator.Input', 256, 4 * 4 * cfg.MODEL.DIM_G, noise)
     output = tf.reshape(output, [-1, cfg.MODEL.DIM_G, 4, 4])
-    output = ResidualBlock('Generator.1', cfg.MODEL.DIM_G, cfg.MODEL.DIM_G,
-                           3, output, resample='up')
-    output = ResidualBlock('Generator.2', cfg.MODEL.DIM_G, cfg.MODEL.DIM_G,
-                           3, output, resample='up')
-    output = ResidualBlock('Generator.3', cfg.MODEL.DIM_G, cfg.MODEL.DIM_G,
-                           3, output, resample='up')
-    output = Normalize('Generator.OutputN', output)
+    output = residual_block('generator.1', cfg.MODEL.DIM_G, cfg.MODEL.DIM_G,
+                            3, output, resample='up')
+    output = residual_block('generator.2', cfg.MODEL.DIM_G, cfg.MODEL.DIM_G,
+                            3, output, resample='up')
+    output = residual_block('generator.3', cfg.MODEL.DIM_G, cfg.MODEL.DIM_G,
+                            3, output, resample='up')
+    output = normalize('generator.OutputN', output)
     output = tf.nn.relu(output)
-    output = lib.ops.conv2d.Conv2D(
-        'Generator.Output', cfg.MODEL.DIM_G, 3, 3, output, he_init=False)
+    output = lib.ops.conv2d.conv2D(
+        'generator.Output', cfg.MODEL.DIM_G, 3, 3, output, he_init=False)
     output = tf.tanh(output)
     return tf.reshape(output, [-1, cfg.DATA.OUTPUT_DIM])
 
 
-def oldDiscriminator(inputs, cfg):
+def old_discriminator(inputs, cfg):
     output = tf.reshape(inputs, [-1, 3, 32, 32])
-    output = OptimizedResBlockDisc1(output, cfg=cfg)
-    output = ResidualBlock('Discriminator.2', cfg.MODEL.DIM_D, cfg.MODEL.DIM_D,
-                           3, output, resample='down')
-    output = ResidualBlock('Discriminator.3', cfg.MODEL.DIM_D, cfg.MODEL.DIM_D,
-                           3, output, resample=None)
-    output = ResidualBlock('Discriminator.4', cfg.MODEL.DIM_D, cfg.MODEL.DIM_D,
-                           3, output, resample=None)
+    output = optimized_res_block_disc1(output, cfg=cfg)
+    output = residual_block('discriminator.2', cfg.MODEL.DIM_D, cfg.MODEL.DIM_D,
+                            3, output, resample='down')
+    output = residual_block('discriminator.3', cfg.MODEL.DIM_D, cfg.MODEL.DIM_D,
+                            3, output, resample=None)
+    output = residual_block('discriminator.4', cfg.MODEL.DIM_D, cfg.MODEL.DIM_D,
+                            3, output, resample=None)
     output = tf.nn.relu(output)
     output = tf.reduce_mean(output, axis=[2, 3])
-    output_wgan = lib.ops.linear.Linear(
-        'Discriminator.Output', cfg.MODEL.DIM_D, 1, output)
+    output_wgan = lib.ops.linear.linear(
+        'discriminator.Output', cfg.MODEL.DIM_D, 1, output)
     output_wgan = tf.reshape(output_wgan, [-1])
-    output_acgan = lib.ops.linear.Linear(
-        'Discriminator.ACGANOutput', cfg.MODEL.DIM_D, cfg.MODEL.HASH_DIM, output)
+    output_acgan = lib.ops.linear.linear(
+        'discriminator.ACGANOutput', cfg.MODEL.DIM_D, cfg.MODEL.HASH_DIM, output)
     output_acgan = tf.nn.tanh(output_acgan)
     return output_wgan, output_acgan
 
 
-def GoodGenerator(n_samples, labels, cfg, noise=None):
+def good_generator(n_samples, labels, cfg, noise=None):
     if noise is None:
         noise = tf.random_normal([n_samples, 128])
 
     noise = tf.concat([tf.cast(labels, tf.float32), tf.slice(
         noise, [0, cfg.DATA.LABEL_DIM], [-1, -1])], 1)
 
-    output = lib.ops.linear.Linear(
-        'Generator.Input', 128, 4 * 4 * 8 * cfg.DATA.DIM, noise)
+    output = lib.ops.linear.linear(
+        'generator.Input', 128, 4 * 4 * 8 * cfg.DATA.DIM, noise)
     output = tf.reshape(output, [-1, 8 * cfg.DATA.DIM, 4, 4])
 
-    output = ResidualBlock('Generator.Res1', 8 * cfg.DATA.DIM,
-                           8 * cfg.DATA.DIM, 3, output, resample='up')
-    output = ResidualBlock('Generator.Res2', 8 * cfg.DATA.DIM,
-                           4 * cfg.DATA.DIM, 3, output, resample='up')
-    output = ResidualBlock('Generator.Res3', 4 * cfg.DATA.DIM,
-                           2 * cfg.DATA.DIM, 3, output, resample='up')
-    output = ResidualBlock('Generator.Res4', 2 * cfg.DATA.DIM,
-                           1 * cfg.DATA.DIM, 3, output, resample='up')
+    output = residual_block('generator.Res1', 8 * cfg.DATA.DIM,
+                            8 * cfg.DATA.DIM, 3, output, resample='up')
+    output = residual_block('generator.Res2', 8 * cfg.DATA.DIM,
+                            4 * cfg.DATA.DIM, 3, output, resample='up')
+    output = residual_block('generator.Res3', 4 * cfg.DATA.DIM,
+                            2 * cfg.DATA.DIM, 3, output, resample='up')
+    output = residual_block('generator.Res4', 2 * cfg.DATA.DIM,
+                            1 * cfg.DATA.DIM, 3, output, resample='up')
 
-    output = Normalize('Generator.OutputN', output)
+    output = normalize('generator.OutputN', output)
     output = tf.nn.relu(output)
-    output = lib.ops.conv2d.Conv2D('Generator.Output', 1 * cfg.DATA.DIM, 3, 3, output)
+    output = lib.ops.conv2d.conv2D('generator.Output', 1 * cfg.DATA.DIM, 3, 3, output)
     output = tf.tanh(output)
 
     return tf.reshape(output, [-1, cfg.DATA.OUTPUT_DIM])
 
 
-def GoodDiscriminator(inputs, cfg):
+def good_discriminator(inputs, cfg):
     output = tf.reshape(inputs, [-1, 3, 64, 64])
-    output = lib.ops.conv2d.Conv2D(
-        'Discriminator.Input', 3, cfg.MODEL.DIM, 3, output, he_init=False)
+    output = lib.ops.conv2d.conv2D(
+        'discriminator.Input', 3, cfg.MODEL.DIM, 3, output, he_init=False)
 
-    output = ResidualBlock('Discriminator.Res1', cfg.MODEL.DIM,
-                           2 * cfg.MODEL.DIM, 3, output, resample='down')
-    output = ResidualBlock('Discriminator.Res2', 2 * cfg.MODEL.DIM,
-                           4 * cfg.MODEL.DIM, 3, output, resample='down')
-    output = ResidualBlock('Discriminator.Res3', 4 * cfg.MODEL.DIM,
-                           8 * cfg.MODEL.DIM, 3, output, resample='down')
-    output = ResidualBlock('Discriminator.Res4', 8 * cfg.MODEL.DIM,
-                           8 * cfg.MODEL.DIM, 3, output, resample='down')
+    output = residual_block('discriminator.Res1', cfg.MODEL.DIM,
+                            2 * cfg.MODEL.DIM, 3, output, resample='down')
+    output = residual_block('discriminator.Res2', 2 * cfg.MODEL.DIM,
+                            4 * cfg.MODEL.DIM, 3, output, resample='down')
+    output = residual_block('discriminator.Res3', 4 * cfg.MODEL.DIM,
+                            8 * cfg.MODEL.DIM, 3, output, resample='down')
+    output = residual_block('discriminator.Res4', 8 * cfg.MODEL.DIM,
+                            8 * cfg.MODEL.DIM, 3, output, resample='down')
 
     output = tf.reshape(output, [-1, 4 * 4 * 8 * cfg.MODEL.DIM])
-    output_wgan = lib.ops.linear.Linear(
-        'Discriminator.Output', 4 * 4 * 8 * cfg.MODEL.DIM, 1, output)
+    output_wgan = lib.ops.linear.linear(
+        'discriminator.Output', 4 * 4 * 8 * cfg.MODEL.DIM, 1, output)
 
-    output_acgan = lib.ops.linear.Linear(
-        'Discriminator.ACGANOutput', 4 * 4 * 8 * cfg.MODEL.DIM, cfg.DIM.HASH_DIM, output)
+    output_acgan = lib.ops.linear.linear(
+        'discriminator.ACGANOutput', 4 * 4 * 8 * cfg.MODEL.DIM, cfg.DIM.HASH_DIM, output)
     output_acgan = tf.nn.tanh(output_acgan)
     return output_wgan, output_acgan
 
 
-def AlexnetDiscriminator(inputs, cfg, stage="train"):
-    # with tf.name_scope('Discriminator.preprocess') as scope:
+def alexnet_discriminator(inputs, cfg, stage="train"):
+    # with tf.name_scope('discriminator.preprocess') as scope:
     net_data = dict(np.load("tflib/reference_pretrain.npy",
                             encoding='latin1').item())
 
@@ -262,7 +262,7 @@ def AlexnetDiscriminator(inputs, cfg, stage="train"):
 
     # Conv1
     # Output 96, kernel 11, stride 4
-    scope = 'Discriminator.conv1.'
+    scope = 'discriminator.conv1.'
     kernel = lib.param(scope + 'weights', net_data['conv1'][0])
     biases = lib.param(scope + 'biases', net_data['conv1'][1])
     conv = tf.nn.conv2d(distorted_image, kernel, [1, 4, 4, 1], padding='VALID')
@@ -284,7 +284,7 @@ def AlexnetDiscriminator(inputs, cfg, stage="train"):
 
     # Conv2
     # Output 256, pad 2, kernel 5, group 2
-    scope = 'Discriminator.conv2.'
+    scope = 'discriminator.conv2.'
     kernel = lib.param(scope + '.weights', net_data['conv2'][0])
     biases = lib.param(scope + '.biases', net_data['conv2'][1])
     group = 2
@@ -322,7 +322,7 @@ def AlexnetDiscriminator(inputs, cfg, stage="train"):
 
     # Conv3
     # Output 384, pad 1, kernel 3
-    scope = 'Discriminator.conv3.'
+    scope = 'discriminator.conv3.'
     kernel = lib.param(scope + '.weights', net_data['conv3'][0])
     biases = lib.param(scope + '.biases', net_data['conv3'][1])
     conv = tf.nn.conv2d(lrn2, kernel, [1, 1, 1, 1], padding='SAME')
@@ -331,7 +331,7 @@ def AlexnetDiscriminator(inputs, cfg, stage="train"):
 
     # Conv4
     # Output 384, pad 1, kernel 3, group 2
-    scope = 'Discriminator.conv4.'
+    scope = 'discriminator.conv4.'
     kernel = lib.param(scope + '.weights', net_data['conv4'][0])
     biases = lib.param(scope + '.biases', net_data['conv4'][1])
     group = 2
@@ -348,7 +348,7 @@ def AlexnetDiscriminator(inputs, cfg, stage="train"):
 
     # Conv5
     # Output 256, pad 1, kernel 3, group 2
-    scope = 'Discriminator.conv5.'
+    scope = 'discriminator.conv5.'
     kernel = lib.param(scope + '.weights', net_data['conv5'][0])
     biases = lib.param(scope + '.biases', net_data['conv5'][1])
     group = 2
@@ -372,9 +372,9 @@ def AlexnetDiscriminator(inputs, cfg, stage="train"):
 
     # FC6
     # Output 4096
-    # with tf.name_scope('Discriminator.fc6') as scope:
+    # with tf.name_scope('discriminator.fc6') as scope:
     shape = int(np.prod(pool5.get_shape()[1:]))
-    scope = 'Discriminator.fc6.'
+    scope = 'discriminator.fc6.'
     fc6w = lib.param(scope + '.weights', net_data['fc6'][0])
     fc6b = lib.param(scope + '.biases', net_data['fc6'][1])
     pool5_flat = tf.reshape(pool5, [-1, shape])
@@ -383,7 +383,7 @@ def AlexnetDiscriminator(inputs, cfg, stage="train"):
 
     # FC7
     # Output 4096
-    scope = 'Discriminator.fc7.'
+    scope = 'discriminator.fc7.'
     fc7w = lib.param(scope + '.weights', net_data['fc7'][0])
     fc7b = lib.param(scope + '.biases', net_data['fc7'][1])
     fc7l = tf.nn.bias_add(tf.matmul(fc6, fc7w), fc7b)
@@ -391,8 +391,8 @@ def AlexnetDiscriminator(inputs, cfg, stage="train"):
 
     # FC8
     # Output output_dim
-    fc8 = lib.ops.linear.Linear(
-        'Discriminator.ACGANOutput', 4096, cfg.MODEL.HASH_DIM, fc7)
+    fc8 = lib.ops.linear.linear(
+        'discriminator.ACGANOutput', 4096, cfg.MODEL.HASH_DIM, fc7)
     if stage == "train":
         output = tf.nn.tanh(fc8)
     else:
@@ -400,22 +400,22 @@ def AlexnetDiscriminator(inputs, cfg, stage="train"):
         fc8_t = tf.concat([tf.expand_dims(i, 0)
                            for i in tf.split(fc8_t, 10, 0)], 0)
         output = tf.reduce_mean(fc8_t, 0)
-    output_wgan = lib.ops.linear.Linear('Discriminator.Output', 4096, 1, fc7)
+    output_wgan = lib.ops.linear.linear('discriminator.Output', 4096, 1, fc7)
 
     return output_wgan, output
 
 
-def Generator(n_samples, labels, cfg, noise=None):
+def generator(n_samples, labels, cfg, noise=None):
     if cfg.MODEL.ARCHITECTURE == "GOOD":
-        return GoodGenerator(n_samples, labels, noise=noise, cfg=cfg)
+        return good_generator(n_samples, labels, noise=noise, cfg=cfg)
     else:
-        return oldGenerator(n_samples, labels, noise=noise, cfg=cfg)
+        return old_generator(n_samples, labels, noise=noise, cfg=cfg)
 
 
-def Discriminator(inputs, cfg, stage="train"):
+def discriminator(inputs, cfg, stage="train"):
     if cfg.MODEL.ARCHITECTURE == "GOOD":
-        return GoodDiscriminator(inputs, cfg=cfg)
+        return good_discriminator(inputs, cfg=cfg)
     elif cfg.MODEL.ARCHITECTURE == "ALEXNET":
-        return AlexnetDiscriminator(inputs, stage=stage, cfg=cfg)
+        return alexnet_discriminator(inputs, stage=stage, cfg=cfg)
     else:
-        return oldDiscriminator(inputs, cfg=cfg)
+        return old_discriminator(inputs, cfg=cfg)

@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 
 
-def Batchnorm(name, axes, inputs, is_training=None, stats_iter=None, update_moving_stats=True, fused=True):
+def batch_norm(name, axes, inputs, is_training=None, stats_iter=None, update_moving_stats=True, fused=True):
     if ((axes == [0, 2, 3]) or (axes == [0, 2])) and fused is True:
         if axes == [0, 2]:
             inputs = tf.expand_dims(inputs, 3)

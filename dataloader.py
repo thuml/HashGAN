@@ -20,8 +20,9 @@ import numpy as np
 
 
 class Dataset(object):
-    def __init__(self, path, train=True, height_width=256):
-        self.lines = open(path, 'r').readlines()
+    def __init__(self, list_path, image_root, train=True, height_width=256):
+        self.lines = open(list_path, 'r').readlines()
+        self.image_root = image_root
         self.n_samples = len(self.lines)
         self.train = train
         self.height_width = height_width
@@ -37,7 +38,8 @@ class Dataset(object):
 
     def read_image_at(self, index):
         filename = self.lines[index].strip().split()[0]
-        img = cv2.imread(filename)
+        path = os.path.join(self.image_root, filename)
+        img = cv2.imread(path)
         return cv2.resize(img, self.img_shape, interpolation=cv2.INTER_AREA)
 
     def get_label(self, index):
@@ -50,7 +52,7 @@ class Dataset(object):
             ret_img = []
             ret_label = []
             for i in index:
-                # noinspection PyBroadException
+                # noinspection PyBroadException,PyPep8
                 try:
                     if self.train:
                         if not self._load[i]:
@@ -75,10 +77,8 @@ class Dataset(object):
 
     @property
     def img_all_data(self):
-        if self._status:
-            return self._img, self._label
-        else:
-            return None, None
+        assert self._status
+        return self._img, self._label
 
     def get_labels(self):
         for i in range(self.n_samples):
@@ -89,14 +89,15 @@ class Dataset(object):
 
 class Dataloader(object):
 
-    def __init__(self, batch_size, width_height, data_root):
+    def __init__(self, batch_size, width_height, list_root, image_root):
         self.batch_size = batch_size
         self.width_height = width_height
-        self.data_root = data_root
+        self.data_root = list_root
+        self.image_root = image_root
     
     def data_generator(self, split):
-        file_name = os.path.join(self.data_root, split + '.txt')
-        _dataset = Dataset(file_name, True, self.width_height)
+        _dataset = Dataset(list_path=os.path.join(self.data_root, split + '.txt'),
+                           image_root=self.image_root, train=True, height_width=self.width_height)
 
         def get_epoch():
 

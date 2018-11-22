@@ -9,11 +9,11 @@ _params = {}
 _param_aliases = {}
 
 
-def preprocess_resize_scale_img(inputs, WIDTH_HEIGHT):
+def preprocess_resize_scale_img(inputs, width_height):
     img = (inputs + 1.) * 255.99 / 2
     reshaped_image = tf.cast(img, tf.float32)
     reshaped_image = tf.reshape(
-        reshaped_image, [-1, 3, WIDTH_HEIGHT, WIDTH_HEIGHT])
+        reshaped_image, [-1, 3, width_height, width_height])
 
     transpose_image = tf.transpose(reshaped_image, perm=[0, 2, 3, 1])
     resized_image = tf.image.resize_bilinear(transpose_image, [256, 256])

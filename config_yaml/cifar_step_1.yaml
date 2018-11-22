@@ -1,2 +1,31 @@
+MODEL:
+    ARCHITECTURE: "NORM"
 DATA:
-    USE_DATASET: "cifar10"
+    USE_DATASET: "cifar10"  # "cifar10", "nuswide81", "coco"
+    LABEL_DIM: 10
+    DB_SIZE: 54000
+    TEST_SIZE: 1000
+    WIDTH_HEIGHT: 32
+    OUTPUT_DIM: 3072 # Number of pixels (32*32*3)
+    MAP_R: 54000  
+    LIST_ROOT: "./data_list/cifar10"
+    DATA_ROOT: "./data/cifar10"
+    OUTPUT_DIR: "./output/cifar10_step_1"
+    IMAGE_DIR: "./output/cifar10_step_1/images"
+    MODEL_DIR: "./output/cifar10_step_1/models"
+    LOG_DIR: "./output/cifar10_step_1/logs"
+
+TRAIN:
+    USE_PRETRAIN: True
+    BATCH_SIZE: 64
+    ITERS: 100000
+    CROSS_ENTROPY_ALPHA: 5
+    LR: 1e-4  # Initial learning rate
+    G_LR: 1e-4  # 1e-4
+    DECAY: True  # Whether to decay LR over learning
+    N_CRITIC: 5 # Critic steps per generator steps
+    SAVE_FREQUENCY: 20000  # How frequently to save model
+    ACGAN_SCALE: 1.0
+    ACGAN_SCALE_G: 0.1
+    WGAN_SCALE: 1.0  
+    WGAN_SCALE_G: 1.0

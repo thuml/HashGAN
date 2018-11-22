@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 
 
-def Conv2D(
+def conv2D(
         name,
         input_dim,
         output_dim,

@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 
 
-def Linear(
+def linear(
         name,
         input_dim,
         output_dim,
@@ -106,7 +106,7 @@ def Linear(
                     tf.square(weight), reduction_indices=[0]))
                 weight = weight * (target_norms / norms)
 
-        # if 'Discriminator' in name:
+        # if 'discriminator' in name:
         #     print "WARNING weight constraint on {}".format(name)
         #     weight = tf.nn.softsign(10.*weight)*.1
 
