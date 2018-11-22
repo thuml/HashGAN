@@ -1,6 +1,7 @@
 MODEL:
     ARCHITECTURE: "ALEXNET"
-    PRETRAINED_MODEL_PATH: "/home/liubin/HashGAN/models/cifar10_20181119_163535_D_LR_0.0001_G_LR_0.0001_ARCHITECTURE_NORM_PRETRAIN_False_PARTIAL_True_REALFAKE_False_NORMEDTrue_WGAN_SCALE_1.0_ACGAN_SCALE_1.0_ALPHA_5_FAKE_RATIO_1.0/iteration_99999.ckpt"
+    PRETRAINED_MODEL_PATH: "output/cifar10_step_1/models/iteration_79999.ckpt"
+    ALEXNET_PRETRAINED_MODEL_PATH: "pretrained_models/reference_pretrain.npy"
 DATA:
     USE_DATASET: "cifar10"  # "cifar10", "nuswide81", "coco"
     LABEL_DIM: 10
@@ -17,7 +18,6 @@ DATA:
     LOG_DIR: "./output/cifar10_finetune/logs"
 
 TRAIN:
-    USE_PRETRAIN: True
     BATCH_SIZE: 128
     ITERS: 10000
     CROSS_ENTROPY_ALPHA: 5

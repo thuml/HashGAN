@@ -16,10 +16,9 @@ DATA:
     LOG_DIR: "./output/cifar10_step_1/logs"
 
 TRAIN:
-    USE_PRETRAIN: True
     BATCH_SIZE: 64
     ITERS: 100000
-    CROSS_ENTROPY_ALPHA: 5
+    CROSS_ENTROPY_ALPHA: 10
     LR: 1e-4  # Initial learning rate
     G_LR: 1e-4  # 1e-4
     DECAY: True  # Whether to decay LR over learning

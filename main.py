@@ -33,7 +33,7 @@ from lib.config import config
 def main(cfg):
     DEVICES = [x.name for x in device_lib.list_local_devices()
                if x.device_type == 'GPU']
-    dataloader = Dataloader(cfg.DATA.BATCH_SIZE, cfg.DATA.WIDTH_HEIGHT, cfg.DATA.LIST_ROOT, cfg.DATA.DATA_ROOT)
+    dataloader = Dataloader(cfg.TRAIN.BATCH_SIZE, cfg.DATA.WIDTH_HEIGHT, cfg.DATA.LIST_ROOT, cfg.DATA.DATA_ROOT)
 
     config_proto = tf.ConfigProto()
     config_proto.gpu_options.allow_growth = True
@@ -312,8 +312,9 @@ def main(cfg):
         print("initializing global variables")
         session.run(tf.global_variables_initializer())
 
-        if cfg.TRAIN.USE_PRETRAIN:
+        if len(cfg.MODEL.PRETRAINED_MODEL_PATH) > 0:
             saver = tf.train.Saver(params_with_name('generator'))
+            import ipdb; ipdb.set_trace()
             saver.restore(session, cfg.MODEL.PRETRAINED_MODEL_PATH)
             print("model restored")
 

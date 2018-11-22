@@ -21,7 +21,6 @@ def conv2D(
     returns: tensor of shape (batch size, num channels, height, width)
     """
     with tf.name_scope(name):
-
         if mask_type is not None:
             mask_type, mask_n_channels = mask_type
 

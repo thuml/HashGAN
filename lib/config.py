@@ -10,6 +10,7 @@ _C.MODEL.DIM_D = 128  # Critic dimensionality
 _C.MODEL.DIM = 64  # DIM for good generator and discriminator
 _C.MODEL.HASH_DIM = 64
 _C.MODEL.PRETRAINED_MODEL_PATH = ""
+_C.MODEL.ALEXNET_PRETRAINED_MODEL_PATH = "pretrained_models/reference_pretrain.npy"
 
 _C.DATA = CfgNode()
 _C.DATA.USE_DATASET = "cifar10"  # "cifar10", "nuswide81", "coco"
@@ -28,7 +29,6 @@ _C.DATA.MODEL_DIR = osp.join(_C.DATA.OUTPUT_DIR, "models")
 _C.DATA.LOG_DIR = osp.join(_C.DATA.OUTPUT_DIR, "logs")
 
 _C.TRAIN = CfgNode()
-_C.TRAIN.USE_PRETRAIN = False
 _C.TRAIN.BATCH_SIZE = 64
 _C.TRAIN.ITERS = 100000
 _C.TRAIN.CROSS_ENTROPY_ALPHA = 5

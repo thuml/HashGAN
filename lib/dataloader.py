@@ -34,7 +34,6 @@ class Dataset(object):
         self._load_num = 0
         self._status = 0
         self.data = self.img_data
-        self.all_data = self.img_all_data
 
     def read_image_at(self, index):
         filename = self.lines[index].strip().split()[0]
@@ -94,7 +93,7 @@ class Dataloader(object):
         self.width_height = width_height
         self.data_root = list_root
         self.image_root = image_root
-    
+
     def data_generator(self, split):
         _dataset = Dataset(list_path=os.path.join(self.data_root, split + '.txt'),
                            image_root=self.image_root, train=True, height_width=self.width_height)

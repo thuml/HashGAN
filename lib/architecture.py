@@ -202,8 +202,7 @@ def good_discriminator(inputs, cfg):
 
 def alexnet_discriminator(inputs, cfg, stage="train"):
     # with tf.name_scope('discriminator.preprocess') as scope:
-    net_data = dict(np.load("ops/reference_pretrain.npy",
-                            encoding='latin1').item())
+    net_data = dict(np.load(cfg.MODEL.ALEXNET_PRETRAINED_MODEL_PATH, encoding='latin1').item())
 
     if inputs.shape[1] != 256:
         inputs = preprocess_resize_scale_img(inputs, cfg.DATA.WIDTH_HEIGHT)
