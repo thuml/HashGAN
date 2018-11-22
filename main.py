@@ -292,17 +292,9 @@ def main(cfg):
 
         # Function for generating samples
         noise_dim = 256 if cfg.DATA.USE_DATASET == "cifar10" else 128  # TODO: refactor
-        fixed_noise = tf.constant(np.random.normal(
-            size=(100, noise_dim)).astype('float32'))
-        fixed_labels = to_one_hot(tf.constant(
-            np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9] * 10, dtype='int32')))
+        fixed_noise = tf.constant(np.random.normal(ize=(100, noise_dim)).astype('float32'))
+        fixed_labels = tf.reshape(tf.tile(tf.eye(10, 10, dtype=tf.int32), [1, 10]), (100, 10))
         fixed_noise_samples = generator(100, fixed_labels, noise=fixed_noise, cfg=cfg)
-
-        def generate_image(frame):
-            samples = session.run(fixed_noise_samples)
-            samples = ((samples + 1.) * (255. / 2)).astype('int32')
-            save_images(samples.reshape((100, 3, cfg.DATA.WIDTH_HEIGHT, cfg.DATA.WIDTH_HEIGHT)),
-                                        '{}/samples_{}.png'.format(cfg.DATA.IMAGE_DIR, frame))
 
         gen = dataloader.inf_gen(dataloader.train_gen)
         unlabel_gen = dataloader.inf_gen(dataloader.unlabeled_db_gen)
@@ -322,14 +314,13 @@ def main(cfg):
         for iteration in range(cfg.TRAIN.ITERS):
             start_time = time.time()
 
-            if iteration > 0:
-                if cfg.TRAIN.G_LR != 0:
-                    _data, _labels = gen()
-                    _ = session.run([gen_train_op], feed_dict={
-                        all_real_data_int: _data,
-                        all_real_labels: _labels,
-                        _iteration: iteration,
-                    })
+            if iteration > 0 and cfg.TRAIN.G_LR != 0:
+                _data, _labels = gen()
+                _ = session.run([gen_train_op], feed_dict={
+                    all_real_data_int: _data,
+                    all_real_labels: _labels,
+                    _iteration: iteration,
+                })
 
             for i in range(cfg.TRAIN.N_CRITIC):
                 _data, _labels = gen()
@@ -368,50 +359,36 @@ def main(cfg):
             plot.plot('time', time.time() - start_time)
 
             if (iteration + 1) % 1000 == 0:
-                generate_image(iteration)
+                samples = session.run(fixed_noise_samples)
+                samples = ((samples + 1.) * (255. / 2)).astype('int32')
+                save_images(samples.reshape((100, 3, cfg.DATA.WIDTH_HEIGHT, cfg.DATA.WIDTH_HEIGHT)),
+                            '{}/samples_{}.png'.format(cfg.DATA.IMAGE_DIR, iteration))
 
-            # calculate mAP score w.r.t all db data_list every 10000 config.TRAIN.ITERS
-            if (iteration + 1) % 10000 == 0:
-                db_output = []
-                db_labels = []
-                test_output = []
-                test_labels = []
-                for images, _labels in dataloader.test_gen():
-                    _disc_acgan_output, _ = session.run([disc_real_acgan, disc_real_acgan_cost],
-                                                        feed_dict={all_real_data_int: images,
-                                                                   all_real_labels: _labels})
-                    test_output.append(_disc_acgan_output)
-                    test_labels.append(_labels)
+            # calculate mAP score w.r.t all db data_list
+            if (iteration + 1) % cfg.TRAIN.SAVE_FREQUENCY == 0 or iteration + 1 == cfg.TRAIN.ITERS:
+                
+                def forward_all(gen, size):
+                    outputs, labels = [], []
+                    for image, label in gen():
+                        feed_dict = {all_real_data_int: image, all_real_labels: label}
+                        outputs.append(session.run(disc_real_acgan, feed_dict=feed_dict))
+                        labels.append(labels)
+                    outputs = np.reshape(np.array(outputs), [-1, cfg.MODEL.HASH_DIM])[:size, :])
+                    labels = np.reshape(np.array(labels), [-1, cfg.DATA.LABEL_DIM])[:size, :])
+                    return EasyDict(outputs=outputs, labels=labels)
 
-                for images, _labels in dataloader.db_gen():
-                    _disc_acgan_output, _ = session.run([disc_real_acgan, disc_real_acgan_cost],
-                                                        feed_dict={all_real_data_int: images, all_real_labels: _labels})
-                    db_output.append(_disc_acgan_output)
-                    db_labels.append(_labels)
-
-                db = argparse.Namespace()
-                db.output = np.reshape(
-                    np.array(db_output), [-1, cfg.MODEL.HASH_DIM])[:cfg.DATA.DB_SIZE, :]
-                db.label = np.reshape(
-                    np.array(db_labels), [-1, cfg.DATA.LABEL_DIM])[:cfg.DATA.DB_SIZE, :]
-                test = argparse.Namespace()
-                test.output = np.reshape(
-                    np.array(test_output), [-1, cfg.MODEL.HASH_DIM])[:cfg.DATA.TEST_SIZE, :]
-                test.label = np.reshape(
-                    np.array(test_labels), [-1, cfg.DATA.LABEL_DIM])[:cfg.DATA.TEST_SIZE, :]
-
+                db = forward_all(db_gen, cfg.DATA.DB_SIZE)
+                test = forward_all(test_gen, cfg.DATA.TEST_SIZE)
                 map_val = MAPs(cfg.DATA.MAP_R).get_mAPs_by_feature(db, test)
                 plot.plot("mAP_feature", map_val)
 
-            if (iteration < 500) or (iteration % 1000 == 999):
-                plot.flush(cfg.DATA.IMAGE_DIR)
-
-            if (iteration + 1) % cfg.TRAIN.SAVE_FREQUENCY == 0 or iteration + 1 == cfg.TRAIN.ITERS:
                 save_path = os.path.join(
                     cfg.DATA.MODEL_DIR, "iteration_{}.ckpt".format(iteration))
-                saver = tf.train.Saver()
-                saver.save(session, save_path)
+                tf.train.Saver().save(session, save_path)
                 print(("Model saved in file: %s" % save_path))
+
+            if (iteration < 500) or ((iteration+1) % 1000 == 0):
+                plot.flush(cfg.DATA.IMAGE_DIR)
 
             plot.tick()
 

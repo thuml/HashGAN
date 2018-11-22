@@ -25,7 +25,7 @@ TRAIN:
     G_LR: 0.0  # 1e-4
     DECAY: True  # Whether to decay LR over learning
     N_CRITIC: 1  # Critic steps per generator steps
-    SAVE_FREQUENCY: 2000  # How frequently to save model
+    EVAL_FREQUENCY: 2000  # How frequently to save model
     ACGAN_SCALE: 1.0
     ACGAN_SCALE_G: 0.0
     WGAN_SCALE: 0.0  
