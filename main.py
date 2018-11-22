@@ -20,16 +20,14 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.client import device_lib
 
-from dataloader import Dataloader
-import tflib as lib
-import tflib.plot
-import tflib.save_images
-import util
-from tflib import preprocess_resize_scale_img
-from tflib import average_gradients
-from tflib.losses import cross_entropy
-from tflib.architecture import generator, discriminator
-from config import config
+from lib import plot
+from lib.dataloader import Dataloader
+from lib.metric import MAPs
+from lib.params import print_param_size, params_with_name
+from lib.util import preprocess_resize_scale_img, save_images, average_gradients
+from lib.criterion import cross_entropy
+from lib.architecture import generator, discriminator
+from lib.config import config
 
 
 def main(cfg):
@@ -133,13 +131,13 @@ def main(cfg):
 
                 # gradients computation
                 disc_costs_gs.append(disc_opt.compute_gradients((tf.reduce_mean(disc_fake) - tf.reduce_mean(disc_real)),
-                                                                var_list=lib.params_with_name('discriminator.')))
+                                                                var_list=params_with_name('discriminator.')))
 
                 pos_start = cfg.TRAIN.BATCH_SIZE // len(DEVICES)
                 pos_middle = 2 * cfg.TRAIN.BATCH_SIZE // len(DEVICES)
                 pos_end = 3 * cfg.TRAIN.BATCH_SIZE // len(DEVICES)
 
-                var_list = lib.params_with_name('discriminator.')
+                var_list = params_with_name('discriminator.')
 
                 # real vs real
                 cost_rr = cross_entropy(
@@ -203,7 +201,7 @@ def main(cfg):
 
                     # gradients computation
                     disc_costs_gs.append(
-                        disc_opt.compute_gradients(gradient_penalty, var_list=lib.params_with_name('discriminator.')))
+                        disc_opt.compute_gradients(gradient_penalty, var_list=params_with_name('discriminator.')))
 
             disc_wgan_gradient = tf.add_n(
                 disc_costs_gradient_penalty) / len(DEVICES)
@@ -255,14 +253,14 @@ def main(cfg):
                     alpha=cfg.TRAIN.CROSS_ENTROPY_ALPHA, partial=True,
                     normed=cfg.TRAIN.NORMED_CROSS_ENTROPY))
                 gen_costs_gs.append(gen_opt.compute_gradients(-tf.reduce_mean(disc_fake),
-                                                              var_list=lib.params_with_name('generator')))
+                                                              var_list=params_with_name('generator')))
                 gen_acgan_costs_gs.append(gen_opt.compute_gradients(cross_entropy(
                     disc_all_acgan[:n_samples],
                     real_and_fake_labels[:n_samples],
                     disc_all_acgan[n_samples:],
                     real_and_fake_labels[n_samples:],
                     alpha=cfg.TRAIN.CROSS_ENTROPY_ALPHA, partial=True,
-                    normed=cfg.TRAIN.NORMED_CROSS_ENTROPY), var_list=lib.params_with_name('generator')))
+                    normed=cfg.TRAIN.NORMED_CROSS_ENTROPY), var_list=params_with_name('generator')))
 
         # set acgan_output
         disc_real_acgan = []
@@ -303,19 +301,19 @@ def main(cfg):
         def generate_image(frame):
             samples = session.run(fixed_noise_samples)
             samples = ((samples + 1.) * (255. / 2)).astype('int32')
-            lib.save_images.save_images(samples.reshape((100, 3, cfg.DATA.WIDTH_HEIGHT, cfg.DATA.WIDTH_HEIGHT)),
+            save_images(samples.reshape((100, 3, cfg.DATA.WIDTH_HEIGHT, cfg.DATA.WIDTH_HEIGHT)),
                                         '{}/samples_{}.png'.format(cfg.DATA.IMAGE_DIR, frame))
 
         gen = dataloader.inf_gen(dataloader.train_gen)
         unlabel_gen = dataloader.inf_gen(dataloader.unlabeled_db_gen)
 
-        util.print_param_size(gen_gv, disc_gv)
+        print_param_size(gen_gv, disc_gv)
 
         print("initializing global variables")
         session.run(tf.global_variables_initializer())
 
         if cfg.TRAIN.USE_PRETRAIN:
-            saver = tf.train.Saver(lib.params_with_name('generator'))
+            saver = tf.train.Saver(params_with_name('generator'))
             saver.restore(session, cfg.MODEL.PRETRAINED_MODEL_PATH)
             print("model restored")
 
@@ -358,15 +356,15 @@ def main(cfg):
                             _iteration: iteration,
                         })
 
-            lib.plot.plot('cost', _disc_cost)
-            lib.plot.plot('acgan_f', _disc_acgan - _disc_acgan_r_r)
-            lib.plot.plot('acgan_r', _disc_acgan_r_r)
+            plot.plot('cost', _disc_cost)
+            plot.plot('acgan_f', _disc_acgan - _disc_acgan_r_r)
+            plot.plot('acgan_r', _disc_acgan_r_r)
 
             if cfg.TRAIN.WGAN_SCALE != 0:
-                lib.plot.plot('wgan', _disc_wgan)
-                lib.plot.plot('wgan_l', _disc_wgan_l)
-                lib.plot.plot('wgan_g', _disc_wgan_g)
-            lib.plot.plot('time', time.time() - start_time)
+                plot.plot('wgan', _disc_wgan)
+                plot.plot('wgan_l', _disc_wgan_l)
+                plot.plot('wgan_g', _disc_wgan_g)
+            plot.plot('time', time.time() - start_time)
 
             if (iteration + 1) % 1000 == 0:
                 generate_image(iteration)
@@ -401,12 +399,11 @@ def main(cfg):
                 test.label = np.reshape(
                     np.array(test_labels), [-1, cfg.DATA.LABEL_DIM])[:cfg.DATA.TEST_SIZE, :]
 
-                map_ = util.MAPs(cfg.DATA.MAP_R)
-                map_val = map_.get_mAPs_by_feature(db, test)
-                lib.plot.plot("mAP_feature", map_val)
+                map_val = MAPs(cfg.DATA.MAP_R).get_mAPs_by_feature(db, test)
+                plot.plot("mAP_feature", map_val)
 
             if (iteration < 500) or (iteration % 1000 == 999):
-                lib.plot.flush(cfg.DATA.IMAGE_DIR)
+                plot.flush(cfg.DATA.IMAGE_DIR)
 
             if (iteration + 1) % cfg.TRAIN.SAVE_FREQUENCY == 0 or iteration + 1 == cfg.TRAIN.ITERS:
                 save_path = os.path.join(
@@ -415,7 +412,7 @@ def main(cfg):
                 saver.save(session, save_path)
                 print(("Model saved in file: %s" % save_path))
 
-            lib.plot.tick()
+            plot.tick()
 
 
 if __name__ == "__main__":
