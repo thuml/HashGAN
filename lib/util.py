@@ -67,6 +67,7 @@ def average_gradients(tower_grads, alpha=1.0):
      List of pairs of (gradient, variable) where the gradient has been averaged
      across all towers.
     """
+    import ipdb; ipdb.set_trace()
     average_grads = []
     for grad_and_vars in zip(*tower_grads):
         # Note that each grad_and_vars looks like the following:

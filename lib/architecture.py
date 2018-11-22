@@ -201,14 +201,12 @@ def good_discriminator(inputs, cfg):
 
 
 def alexnet_discriminator(inputs, cfg, stage="train"):
-    # with tf.name_scope('discriminator.preprocess') as scope:
     net_data = dict(np.load(cfg.MODEL.ALEXNET_PRETRAINED_MODEL_PATH, encoding='latin1').item())
 
     if inputs.shape[1] != 256:
-        inputs = preprocess_resize_scale_img(inputs, cfg.DATA.WIDTH_HEIGHT)
-
-    reshaped_image = inputs
-    # reshaped_image = tf.reshape(reshaped_image,[BATCH_SIZE, 256 , 256, 3])
+        reshaped_image = preprocess_resize_scale_img(inputs, cfg.DATA.WIDTH_HEIGHT)
+    else:
+        reshaped_image = inputs
 
     IMAGE_SIZE = 227
     height = IMAGE_SIZE
@@ -282,8 +280,8 @@ def alexnet_discriminator(inputs, cfg, stage="train"):
     # Conv2
     # Output 256, pad 2, kernel 5, group 2
     scope = 'discriminator.conv2.'
-    kernel = param(scope + '.weights', net_data['conv2'][0])
-    biases = param(scope + '.biases', net_data['conv2'][1])
+    kernel = param(scope + 'weights', net_data['conv2'][0])
+    biases = param(scope + 'biases', net_data['conv2'][1])
     group = 2
 
     def convolve(i, k): return tf.nn.conv2d(i, k, [1, 1, 1, 1], padding='SAME')
@@ -320,8 +318,8 @@ def alexnet_discriminator(inputs, cfg, stage="train"):
     # Conv3
     # Output 384, pad 1, kernel 3
     scope = 'discriminator.conv3.'
-    kernel = param(scope + '.weights', net_data['conv3'][0])
-    biases = param(scope + '.biases', net_data['conv3'][1])
+    kernel = param(scope + 'weights', net_data['conv3'][0])
+    biases = param(scope + 'biases', net_data['conv3'][1])
     conv = tf.nn.conv2d(lrn2, kernel, [1, 1, 1, 1], padding='SAME')
     out = tf.nn.bias_add(conv, biases)
     conv3 = tf.nn.relu(out, name=scope)
@@ -329,8 +327,8 @@ def alexnet_discriminator(inputs, cfg, stage="train"):
     # Conv4
     # Output 384, pad 1, kernel 3, group 2
     scope = 'discriminator.conv4.'
-    kernel = param(scope + '.weights', net_data['conv4'][0])
-    biases = param(scope + '.biases', net_data['conv4'][1])
+    kernel = param(scope + 'weights', net_data['conv4'][0])
+    biases = param(scope + 'biases', net_data['conv4'][1])
     group = 2
 
     def convolve(i, k): return tf.nn.conv2d(i, k, [1, 1, 1, 1], padding='SAME')
@@ -346,8 +344,8 @@ def alexnet_discriminator(inputs, cfg, stage="train"):
     # Conv5
     # Output 256, pad 1, kernel 3, group 2
     scope = 'discriminator.conv5.'
-    kernel = param(scope + '.weights', net_data['conv5'][0])
-    biases = param(scope + '.biases', net_data['conv5'][1])
+    kernel = param(scope + 'weights', net_data['conv5'][0])
+    biases = param(scope + 'biases', net_data['conv5'][1])
     group = 2
 
     def convolve(i, k): return tf.nn.conv2d(i, k, [1, 1, 1, 1], padding='SAME')
@@ -369,11 +367,10 @@ def alexnet_discriminator(inputs, cfg, stage="train"):
 
     # FC6
     # Output 4096
-    # with tf.name_scope('discriminator.fc6') as scope:
     shape = int(np.prod(pool5.get_shape()[1:]))
     scope = 'discriminator.fc6.'
-    fc6w = param(scope + '.weights', net_data['fc6'][0])
-    fc6b = param(scope + '.biases', net_data['fc6'][1])
+    fc6w = param(scope + 'weights', net_data['fc6'][0])
+    fc6b = param(scope + 'biases', net_data['fc6'][1])
     pool5_flat = tf.reshape(pool5, [-1, shape])
     fc6l = tf.nn.bias_add(tf.matmul(pool5_flat, fc6w), fc6b)
     fc6 = tf.nn.dropout(tf.nn.relu(fc6l), 0.5)
@@ -381,8 +378,8 @@ def alexnet_discriminator(inputs, cfg, stage="train"):
     # FC7
     # Output 4096
     scope = 'discriminator.fc7.'
-    fc7w = param(scope + '.weights', net_data['fc7'][0])
-    fc7b = param(scope + '.biases', net_data['fc7'][1])
+    fc7w = param(scope + 'weights', net_data['fc7'][0])
+    fc7b = param(scope + 'biases', net_data['fc7'][1])
     fc7l = tf.nn.bias_add(tf.matmul(fc6, fc7w), fc7b)
     fc7 = tf.nn.dropout(tf.nn.relu(fc7l), 0.5)
 
