@@ -22,7 +22,6 @@ def param(name, *args, **kwargs):
     """
 
     if name not in _params:
-        print(name)
         kwargs['name'] = name
         var = tf.Variable(*args, **kwargs)
         var.param = True

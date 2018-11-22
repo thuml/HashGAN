@@ -15,6 +15,7 @@ import os
 import sys
 import time
 from pprint import pprint
+from datetime import datetime
 
 import numpy as np
 import tensorflow as tf
@@ -90,7 +91,7 @@ class Model(object):
                          + self.cfg.TRAIN.WGAN_SCALE * self.cost_disc_wgan
         self.train_op_disc = disc_opt.minimize(self.cost_disc, var_list=params_with_name('discriminator'))
         self.gv_disc = gen_opt.compute_gradients(self.cost_disc, var_list=params_with_name('discriminator'))
-        self.summary_disc = tf.summary.merge(
+        self.summary_disc = tf.summary.merge([
             tf.summary.scalar('cost_disc_wgan_l', self.cost_disc_wgan_l),
             tf.summary.scalar('cost_disc_wgan_gp', self.cost_disc_wgan_gp),
             tf.summary.scalar('cost_disc_wgan', self.cost_disc_wgan),
@@ -98,7 +99,7 @@ class Model(object):
             tf.summary.scalar('cost_disc_acgan_fr', self.cost_disc_acgan_fr),
             tf.summary.scalar('cost_disc_acgan', self.cost_disc_acgan),
             tf.summary.scalar('cost_disc', self.cost_disc),
-        )
+        ])
 
         # generator loss
         self.cost_gen_wgan = - tf.reduce_mean(disc_wgan_all[:pos_middle])
@@ -107,11 +108,11 @@ class Model(object):
                         + self.cfg.TRAIN.ACGAN_SCALE_G * self.cost_gen_acgan
         self.train_op_gen = gen_opt.minimize(self.cost_gen, var_list=params_with_name('generator'))
         self.gv_gen = gen_opt.compute_gradients(self.cost_gen, var_list=params_with_name('generator'))
-        self.summary_gen = tf.summary.merge(
+        self.summary_gen = tf.summary.merge([
             tf.summary.scalar('cost_gen_wgan', self.cost_gen_wgan),
             tf.summary.scalar('cost_gen_acgan', self.cost_gen_acgan),
             tf.summary.scalar('cost_gen', self.cost_gen),
-        )
+        ])
 
         # set acgan_output
         self.disc_real_acgan = discriminator(labeled_real_data, stage='val', cfg=self.cfg)
@@ -130,7 +131,7 @@ class Model(object):
             reduction_indices += [2, 3]
             real_data = preprocess_resize_scale_img(real_data, width_height=self.cfg.DATA.WIDTH_HEIGHT)
             fake_data = preprocess_resize_scale_img(fake_data, width_height=self.cfg.DATA.WIDTH_HEIGHT)
-        alpha = tf.random_uniform(shape=shape, minvar=0, maxval=1)
+        alpha = tf.random_uniform(shape=shape, minval=0, maxval=1)
 
         interpolates = real_data + alpha * (fake_data - real_data)
         gradients = tf.gradients(discriminator(interpolates, cfg=self.cfg)[0], [interpolates])[0]
@@ -194,33 +195,34 @@ def main(cfg):
 
             # train discriminator
             for i in range(cfg.TRAIN.N_CRITIC):
-                run_options, run_metadata = None, None
-                if iteration % 100 == 0 and i == 0:  # TODO: runtime meta frequency
+                if iteration % cfg.TRAIN.RUNTIME_MEASURE_FREQUENCY == 0 and i == 0:
+                    run_metadata = tf.RunMetadata()
                     cost_disc, summary_disc, _ = session.run(
                         [model.cost_disc, model.summary_disc, model.train_op_disc],
                         feed_dict=get_feed_dict(),
-                        run_metadata=tf.RunMetadata(),
+                        run_metadata=run_metadata,
                         options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE),
                     )
+                    print('{}: [{}/{}], cost_disc={:.3f}'.format(str(datetime.now()), iteration, cfg.TRAIN.ITERS, cost_disc))
                     summary_writer.add_summary(summary_disc, iteration * cfg.TRAIN.N_CRITIC + i)
-                    summary_writer.add_run_metadata(run_metadata, 'step%d' % i)
+                    summary_writer.add_run_metadata(run_metadata, 'step%d' % iteration)
                 else:
                     cost_disc, summary_disc, train_op_disc = session.run(
                         [model.cost_disc, model.summary_disc, model.train_op_disc],
-                        feed_dict=get_feed_dict(), options=run_options, run_metadata=run_metadata
+                        feed_dict=get_feed_dict(),
                     )
                     summary_writer.add_summary(summary_disc, iteration * cfg.TRAIN.N_CRITIC + i)
             summary_writer.add_summary(scalar_summary(tag="time", value=time.time() - start_time), iteration)
 
             # sample images
-            if (iteration + 1) % 1000 == 0:  # TODO: sample freq
+            if (iteration + 1) % cfg.TRAIN.SAMPLE_FREQUENCY == 0:
                 samples = session.run(model.fixed_noise_samples)
                 samples = ((samples + 1.) * (255. / 2)).astype('int32')
                 save_images(samples.reshape((100, 3, cfg.DATA.WIDTH_HEIGHT, cfg.DATA.WIDTH_HEIGHT)),
                             '{}/samples_{}.png'.format(cfg.DATA.IMAGE_DIR, iteration))
 
             # calculate mAP score w.r.t all db data_list
-            if (iteration + 1) % cfg.TRAIN.SAVE_FREQUENCY == 0 or iteration + 1 == cfg.TRAIN.ITERS:
+            if (iteration + 1) % cfg.TRAIN.EVAL_FREQUENCY == 0 or iteration + 1 == cfg.TRAIN.ITERS:
 
                 def forward_all(data_generator, size):
                     outputs, labels = [], []
