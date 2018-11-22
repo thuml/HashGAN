@@ -45,9 +45,9 @@ if __name__ == "__main__":
     import numpy as np
 
     sess = tf.InteractiveSession()
-    u = np.ones([2, 3], dtype=np.float32)
+    u_ = np.ones([2, 3], dtype=np.float32)
     label = np.ones([2, 2])
-    print(("cross entropy loss 1 = %d" % cross_entropy(u, label).eval()))
+    print(("cross entropy loss 1 = %d" % cross_entropy(u_, label).eval()))
 
     label[1, :] = 0
-    print(("cross entropy loss 2 = %d" % cross_entropy(u, label).eval()))
+    print(("cross entropy loss 2 = %d" % cross_entropy(u_, label).eval()))

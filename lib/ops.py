@@ -2,6 +2,8 @@ import numpy as np
 import tensorflow as tf
 from lib.params import param
 
+
+# noinspection PyUnboundLocalVariable,PyPep8Naming
 def conv2D(
         name,
         input_dim,
@@ -31,19 +33,14 @@ def conv2D(
 
         # Mask out future locations
         # filter shape is (height, width, input channels, output channels)
-        mask[center+1:, :, :, :] = 0.
-        mask[center, center+1:, :, :] = 0.
+        mask[center + 1:, :, :, :] = 0.
+        mask[center, center + 1:, :, :] = 0.
 
         # Mask out future channels
         for i in range(mask_n_channels):
             for j in range(mask_n_channels):
                 if (mask_type == 'a' and i >= j) or (mask_type == 'b' and i > j):
-                    mask[
-                        center,
-                        center,
-                        i::mask_n_channels,
-                        j::mask_n_channels
-                    ] = 0.
+                    mask[center, center, i::mask_n_channels, j::mask_n_channels] = 0.
 
     def uniform(stdev, size):
         return np.random.uniform(
@@ -52,17 +49,17 @@ def conv2D(
             size=size
         ).astype('float32')
 
-    fan_in = input_dim * filter_size**2
-    fan_out = output_dim * filter_size**2 / (stride**2)
+    fan_in = input_dim * filter_size ** 2
+    fan_out = output_dim * filter_size ** 2 / (stride ** 2)
 
     if mask_type is not None:  # only approximately correct
         fan_in /= 2.
         fan_out /= 2.
 
     if he_init:
-        filters_stdev = np.sqrt(4./(fan_in+fan_out))
+        filters_stdev = np.sqrt(4. / (fan_in + fan_out))
     else:  # Normalized init (Glorot & Bengio)
-        filters_stdev = np.sqrt(2./(fan_in+fan_out))
+        filters_stdev = np.sqrt(2. / (fan_in + fan_out))
 
     filter_values = uniform(
         filters_stdev,
@@ -72,7 +69,7 @@ def conv2D(
     # print "WARNING IGNORING GAIN"
     filter_values *= gain
 
-    filters = param(name+'.Filters', filter_values)
+    filters = param(name + '.Filters', filter_values)
 
     if weightnorm:
         norm_values = np.sqrt(
@@ -100,7 +97,7 @@ def conv2D(
 
     if biases:
         _biases = param(
-            name+'.Biases',
+            name + '.Biases',
             np.zeros(output_dim, dtype='float32')
         )
 
@@ -130,17 +127,16 @@ def batch_norm(name, axes, inputs, is_training=None, stats_iter=None, update_mov
         def _fused_batch_norm_inference():
             # Version which blends in the current item's statistics
             batch_size = tf.cast(tf.shape(inputs)[0], 'float32')
-            mean, var = tf.nn.moments(inputs, [2, 3], keep_dims=True)
-            mean = ((1. / batch_size) * mean) + (((batch_size - 1.) /
-                                                  batch_size) * moving_mean)[None, :, None, None]
-            var = ((1. / batch_size) * var) + (((batch_size - 1.) / batch_size)
-                                               * moving_variance)[None, :, None, None]
-            bn = tf.nn.batch_normalization(inputs, mean, var,
+            mean_, var_ = tf.nn.moments(inputs, [2, 3], keep_dims=True)
+            mean_ = ((1. / batch_size) * mean_) + (((batch_size - 1.) /
+                                                    batch_size) * moving_mean)[None, :, None, None]
+            var_ = ((1. / batch_size) * var_) + (((batch_size - 1.) / batch_size)
+                                                 * moving_variance)[None, :, None, None]
+            bn = tf.nn.batch_normalization(inputs, mean_, var_,
                                            offset[None, :, None, None],
                                            scale[None, :, None, None],
                                            1e-5)
-            return bn, mean, var
-
+            return bn, mean_, var_
 
         if is_training is None:
             outputs, batch_mean, batch_var = _fused_batch_norm_training()
@@ -197,6 +193,7 @@ def linear(
     """
     initialization: None, `lecun`, 'glorot', `he`, 'glorot_he', `orthogonal`, `("uniform", range)`
     """
+
     def uniform(stdev, size):
         return np.random.uniform(
             low=-stdev * np.sqrt(3),
@@ -239,7 +236,7 @@ def linear(
         def sample(shape):
             if len(shape) < 2:
                 raise RuntimeError("Only shapes of length 2 or more are "
-                                    "supported.")
+                                   "supported.")
             flat_shape = (shape[0], np.prod(shape[1:]))
             a = np.random.normal(0.0, 1.0, flat_shape)
             u, _, v = np.linalg.svd(a, full_matrices=False)

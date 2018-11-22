@@ -32,6 +32,8 @@ If you need run on NUSWIDE_81 and COCO, we recommend you to follow https://githu
 ### TODO
 
 - [ ] code refactor
+  - [ ] wgan scale == 0
+  - [ ] G, D architecture
   - [ ] evaluate mode
   - [ ] resume training
   - [ ] tensorboard

@@ -18,379 +18,231 @@ from pprint import pprint
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.python.client import device_lib
+from easydict import EasyDict
 
-from lib import plot
 from lib.dataloader import Dataloader
 from lib.metric import MAPs
 from lib.params import print_param_size, params_with_name
-from lib.util import preprocess_resize_scale_img, save_images, average_gradients
+from lib.util import preprocess_resize_scale_img, save_images, scalar_summary
 from lib.criterion import cross_entropy
 from lib.architecture import generator, discriminator
 from lib.config import config
 
 
-def main(cfg):
-    DEVICES = [x.name for x in device_lib.list_local_devices()
-               if x.device_type == 'GPU']
-    dataloader = Dataloader(cfg.TRAIN.BATCH_SIZE, cfg.DATA.WIDTH_HEIGHT, cfg.DATA.LIST_ROOT, cfg.DATA.DATA_ROOT)
+# noinspection PyAttributeOutsideInit
+class Model(object):
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.batch_size = self.cfg.TRAIN.BATCH_SIZE
 
-    config_proto = tf.ConfigProto()
-    config_proto.gpu_options.allow_growth = True
-    config_proto.allow_soft_placement = True
-    with tf.Session(config=config_proto) as session:
+        self._iteration = tf.placeholder(tf.int32, shape=None)
 
-        _iteration = tf.placeholder(tf.int32, shape=None)
+        self.labeled_real_data_holder = tf.placeholder(tf.int32, shape=[self.batch_size, self.cfg.DATA.OUTPUT_DIM])
+        self.unlabeled_real_data_holder = tf.placeholder(tf.int32, shape=[self.batch_size, self.cfg.DATA.OUTPUT_DIM])
+        self.labeled_labels_holder = tf.placeholder(tf.int32, shape=[self.batch_size, self.cfg.DATA.LABEL_DIM])
+        self.unlabeled_labels_holder = tf.placeholder(tf.int32, shape=[self.batch_size, self.cfg.DATA.LABEL_DIM])
 
-        # unlabeled data_list initialization
-        all_unlabel_data_int = tf.placeholder(
-            tf.int32, shape=[cfg.TRAIN.BATCH_SIZE, cfg.DATA.OUTPUT_DIM])
-        all_unlabel_labels = tf.placeholder(
-            tf.int32, shape=[cfg.TRAIN.BATCH_SIZE, cfg.DATA.LABEL_DIM])
-        unlabel_labels_splits = tf.split(
-            all_unlabel_labels, len(DEVICES), axis=0)
+        self.build_graph()
+        self.build_fixed_noise_samples()
 
-        unlabel_fake_data_splits = []
-        for i, device in enumerate(DEVICES):
-            with tf.device(device):
-                unlabel_fake_data_splits.append(
-                    generator(cfg.TRAIN.BATCH_SIZE // len(DEVICES), unlabel_labels_splits[i], cfg=cfg))
-
-        all_unlabel_data = tf.reshape(2 * ((tf.cast(all_unlabel_data_int, tf.float32) / 256.) - .5),
-                                      [cfg.TRAIN.BATCH_SIZE, cfg.DATA.OUTPUT_DIM])
-        all_unlabel_data += tf.random_uniform(
-            shape=[cfg.TRAIN.BATCH_SIZE, cfg.DATA.OUTPUT_DIM], minval=0., maxval=1. / 128)  # dequantize
-        all_unlabel_data_splits = tf.split(
-            all_unlabel_data, len(DEVICES), axis=0)
-
-        # labeled data_list init
-        all_real_data_int = tf.placeholder(
-            tf.int32, shape=[cfg.TRAIN.BATCH_SIZE, cfg.DATA.OUTPUT_DIM])
-        all_real_labels = tf.placeholder(
-            tf.int32, shape=[cfg.TRAIN.BATCH_SIZE, cfg.DATA.LABEL_DIM])
-        labels_splits = tf.split(all_real_labels, len(DEVICES), axis=0)
-
-        fake_data_splits = []
-        for i, device in enumerate(DEVICES):
-            with tf.device(device):
-                fake_data_splits.append(
-                    generator(cfg.TRAIN.BATCH_SIZE // len(DEVICES), labels_splits[i], cfg=cfg))
-
-        all_real_data = tf.reshape(
-            2 * ((tf.cast(all_real_data_int, tf.float32) / 256.) - .5), [cfg.TRAIN.BATCH_SIZE, cfg.DATA.OUTPUT_DIM])
-        # dequantize
-        all_real_data += tf.random_uniform(
-            shape=[cfg.TRAIN.BATCH_SIZE, cfg.DATA.OUTPUT_DIM], minval=0., maxval=1. / 128)
-        all_real_data_splits = tf.split(all_real_data, len(DEVICES), axis=0)
+    def build_graph(self):
+        labeled_real_data = self.normalize(self.labeled_real_data_holder)
+        unlabeled_real_data = self.normalize(self.unlabeled_real_data_holder)
+        labeled_fake_data = generator(self.batch_size, self.labeled_labels_holder, cfg=self.cfg)
+        unlabeled_fake_data = generator(self.batch_size, self.unlabeled_labels_holder, cfg=self.cfg)
 
         # init optimizer
-        if cfg.TRAIN.DECAY:
-            decay = tf.maximum(
-                0., 1. - (tf.cast(_iteration, tf.float32) / cfg.TRAIN.ITERS))
+        if self.cfg.TRAIN.DECAY:
+            decay = tf.maximum(0., 1. - (tf.cast(self._iteration, tf.float32) / self.cfg.TRAIN.ITERS))
         else:
             decay = 1.0
         # TODO
         # if config.MODEL.ARCHITECTURE == "ALEXNET":
         #   disc_opt = tf.train.MomentumOptimizer(learning_rate=LR*decay, momentum=0.9)
         # else:
-        disc_opt = tf.train.AdamOptimizer(
-            learning_rate=cfg.TRAIN.LR * decay, beta1=0., beta2=0.9)
-        gen_opt = tf.train.AdamOptimizer(
-            learning_rate=cfg.TRAIN.G_LR * decay, beta1=0., beta2=0.9)
+        disc_opt = tf.train.AdamOptimizer(learning_rate=self.cfg.TRAIN.LR * decay, beta1=0., beta2=0.9)
+        gen_opt = tf.train.AdamOptimizer(learning_rate=self.cfg.TRAIN.G_LR * decay, beta1=0., beta2=0.9)
 
-        disc_costs = []
-        disc_acgan_costs = []
-        disc_acgan_costs_real_real = []
+        all_data = tf.concat([unlabeled_real_data, labeled_real_data, labeled_fake_data, unlabeled_fake_data], axis=0)
+        pos_start, pos_middle, pos_end = [i * self.batch_size for i in range(1, 4)]
+        disc_wgan_all, disc_acgan_all = discriminator(all_data, cfg=self.cfg)
 
-        disc_costs_gs = []
-        disc_acgan_costs_gs = []
+        # disciminator wgan loss
+        self.cost_disc_wgan_l = tf.reduce_mean(disc_wgan_all[:pos_middle]) - tf.reduce_mean(disc_wgan_all[pos_middle:])
+        self.cost_disc_wgan_gp = self.gradient_penalty(all_data[:pos_middle], all_data[pos_middle:])
+        self.cost_disc_wgan = self.cost_disc_wgan_l + 10 * self.cost_disc_wgan_gp
 
-        disc_costs_wgan = []
-        disc_costs_gradient_penalty = []
-        for i, device in enumerate(DEVICES):
-            with tf.device(device):
-                real_and_fake_data = tf.concat([
-                    all_unlabel_data_splits[i],
-                    all_real_data_splits[i],
-                    fake_data_splits[i],
-                    unlabel_fake_data_splits[i],
-                ], axis=0)
-                real_and_fake_labels = tf.concat([
-                    unlabel_labels_splits[i],
-                    labels_splits[i],
-                    labels_splits[i],
-                    unlabel_labels_splits[i],
-                ], axis=0)
-                disc_all, disc_all_acgan = discriminator(
-                    real_and_fake_data, cfg=cfg)
-                # size * 2 for unlabeled data_list
-                disc_real = disc_all[:cfg.TRAIN.BATCH_SIZE // len(DEVICES) * 2]
-                disc_fake = disc_all[cfg.TRAIN.BATCH_SIZE // len(DEVICES) * 2:]
-                disc_costs.append(tf.reduce_mean(disc_fake) - tf.reduce_mean(disc_real))
-                disc_costs_wgan.append(tf.reduce_mean(disc_fake) - tf.reduce_mean(disc_real))
+        # var_list = params_with_name('discriminator.')
+        # discriminator acgan loss
+        # real vs real acgan loss
+        self.cost_disc_acgan_rr = cross_entropy(disc_acgan_all[pos_start:pos_middle], self.labeled_labels_holder,
+                                                alpha=self.cfg.TRAIN.CROSS_ENTROPY_ALPHA,
+                                                normed=self.cfg.TRAIN.NORMED_CROSS_ENTROPY)
+        # real vs fake acgan loss, fake can't influence real.
+        self.cost_disc_acgan_fr = cross_entropy(disc_acgan_all[pos_start:pos_middle], self.labeled_labels_holder,
+                                                disc_acgan_all[pos_middle:pos_end], self.labeled_labels_holder,
+                                                alpha=self.cfg.TRAIN.CROSS_ENTROPY_ALPHA,
+                                                normed=self.cfg.TRAIN.NORMED_CROSS_ENTROPY,
+                                                partial=True)
+        self.cost_disc_acgan = self.cost_disc_acgan_rr + self.cost_disc_acgan_fr
 
-                # gradients computation
-                disc_costs_gs.append(disc_opt.compute_gradients((tf.reduce_mean(disc_fake) - tf.reduce_mean(disc_real)),
-                                                                var_list=params_with_name('discriminator.')))
+        self.cost_disc = self.cfg.TRAIN.ACGAN_SCALE * self.cost_disc_acgan \
+                         + self.cfg.TRAIN.WGAN_SCALE * self.cost_disc_wgan
+        self.train_op_disc = disc_opt.minimize(self.cost_disc, var_list=params_with_name('discriminator'))
+        self.gv_disc = gen_opt.compute_gradients(self.cost_disc, var_list=params_with_name('discriminator'))
+        self.summary_disc = tf.summary.merge(
+            tf.summary.scalar('cost_disc_wgan_l', self.cost_disc_wgan_l),
+            tf.summary.scalar('cost_disc_wgan_gp', self.cost_disc_wgan_gp),
+            tf.summary.scalar('cost_disc_wgan', self.cost_disc_wgan),
+            tf.summary.scalar('cost_disc_acgan_rr', self.cost_disc_acgan_rr),
+            tf.summary.scalar('cost_disc_acgan_fr', self.cost_disc_acgan_fr),
+            tf.summary.scalar('cost_disc_acgan', self.cost_disc_acgan),
+            tf.summary.scalar('cost_disc', self.cost_disc),
+        )
 
-                pos_start = cfg.TRAIN.BATCH_SIZE // len(DEVICES)
-                pos_middle = 2 * cfg.TRAIN.BATCH_SIZE // len(DEVICES)
-                pos_end = 3 * cfg.TRAIN.BATCH_SIZE // len(DEVICES)
-
-                var_list = params_with_name('discriminator.')
-
-                # real vs real
-                cost_rr = cross_entropy(
-                    disc_all_acgan[pos_start:pos_middle],
-                    real_and_fake_labels[pos_start:pos_middle],
-                    alpha=cfg.TRAIN.CROSS_ENTROPY_ALPHA,
-                    normed=cfg.TRAIN.NORMED_CROSS_ENTROPY)
-                disc_acgan_costs.append(cost_rr)
-                # gradients computation
-                disc_acgan_costs_gs.append(
-                    disc_opt.compute_gradients(cost_rr, var_list=var_list))
-                # real vs fake, fake cannot influence real
-                if cfg.TRAIN.FAKE_RATIO != 0.0:
-                    cost_fr = cfg.TRAIN.FAKE_RATIO * cross_entropy(
-                        disc_all_acgan[pos_start:pos_middle],
-                        real_and_fake_labels[pos_start:pos_middle],
-                        disc_all_acgan[pos_middle:pos_end],
-                        real_and_fake_labels[pos_middle:pos_end], alpha=cfg.TRAIN.CROSS_ENTROPY_ALPHA, partial=True,
-                        normed=cfg.TRAIN.NORMED_CROSS_ENTROPY)
-                    disc_acgan_costs.append(cost_fr)
-                    disc_acgan_costs_gs.append(
-                        disc_opt.compute_gradients(cost_fr, var_list=var_list))
-
-                disc_acgan_costs_real_real.append(cross_entropy(
-                    disc_all_acgan[pos_start:pos_middle],
-                    real_and_fake_labels[pos_start:pos_middle],
-                    alpha=cfg.TRAIN.CROSS_ENTROPY_ALPHA,
-                    normed=cfg.TRAIN.NORMED_CROSS_ENTROPY))
-
-        if cfg.TRAIN.WGAN_SCALE != 0:
-            for i, device in enumerate(DEVICES):
-                with tf.device(device):
-                    real_data = tf.concat(
-                        [all_unlabel_data_splits[i], all_real_data_splits[i]], axis=0)
-                    fake_data = tf.concat(
-                        [fake_data_splits[i], unlabel_fake_data_splits[i]], axis=0)
-                    alpha = tf.random_uniform(
-                        shape=[2 * cfg.TRAIN.BATCH_SIZE // len(DEVICES), 1],
-                        minval=0.,
-                        maxval=1.
-                    )
-                    if cfg.MODEL.ARCHITECTURE == "ALEXNET":
-                        real_data = preprocess_resize_scale_img(real_data, width_height=cfg.DATA.WIDTH_HEIGHT)
-                        fake_data = preprocess_resize_scale_img(fake_data, width_height=cfg.DATA.WIDTH_HEIGHT)
-                        alpha = tf.random_uniform(
-                            shape=[2 * cfg.TRAIN.BATCH_SIZE // len(DEVICES), 1, 1, 1],
-                            minval=0.,
-                            maxval=1.
-                        )
-
-                    differences = fake_data - real_data
-                    interpolates = real_data + (alpha * differences)
-                    gradients = tf.gradients(discriminator(interpolates, cfg=cfg)[0], [interpolates])[0]
-                    if cfg.MODEL.ARCHITECTURE == "ALEXNET":
-                        slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=[1, 2, 3]))
-                    else:
-                        slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=[1]))
-                    gradient_penalty = 10 * tf.reduce_mean((slopes - 1.) ** 2)
-                    disc_costs.append(gradient_penalty)
-                    disc_costs_gradient_penalty.append(gradient_penalty)
-
-                    # gradients computation
-                    disc_costs_gs.append(
-                        disc_opt.compute_gradients(gradient_penalty, var_list=params_with_name('discriminator.')))
-
-            disc_wgan_gradient = tf.add_n(
-                disc_costs_gradient_penalty) / len(DEVICES)
-
-        disc_wgan = tf.add_n(disc_costs) / len(DEVICES)
-        disc_wgan_l = tf.add_n(disc_costs_wgan) / len(DEVICES)
-
-        disc_acgan = tf.add_n(disc_acgan_costs) / len(DEVICES)
-        disc_acgan_real_real = tf.add_n(
-            disc_acgan_costs_real_real) / len(DEVICES)
-
-        disc_cost = cfg.TRAIN.ACGAN_SCALE * disc_acgan
-
-        disc_gv = average_gradients(disc_acgan_costs_gs, cfg.TRAIN.ACGAN_SCALE)
-        if cfg.TRAIN.WGAN_SCALE != 0:
-            disc_cost = disc_cost + cfg.TRAIN.WGAN_SCALE * disc_wgan
-            disc_gv = disc_gv + average_gradients(disc_costs_gs, cfg.TRAIN.WGAN_SCALE)
-
-        gen_costs = []
-        gen_acgan_costs = []
-
-        gen_costs_gs = []
-        gen_acgan_costs_gs = []
-
-        def to_one_hot(sparse_labels):
-            return tf.one_hot(sparse_labels, cfg.DATA.LABEL_DIM, dtype=tf.int32)
-
-        for i, device in enumerate(DEVICES):
-            with tf.device(device):
-                n_samples = cfg.TRAIN.BATCH_SIZE // len(DEVICES)
-                fake_data = generator(n_samples, labels_splits[i], cfg=cfg)
-                real_and_fake_data = tf.concat([
-                    all_real_data_splits[i],
-                    fake_data
-                ], axis=0)
-                real_and_fake_labels = tf.concat([
-                    labels_splits[i],
-                    labels_splits[i],
-                ], axis=0)
-                disc_all, disc_all_acgan = discriminator(
-                    real_and_fake_data, cfg=cfg)
-                disc_fake = disc_all[n_samples:]
-                gen_costs.append(-tf.reduce_mean(disc_fake))
-                gen_acgan_costs.append(cross_entropy(
-                    disc_all_acgan[:n_samples],
-                    real_and_fake_labels[:n_samples],
-                    disc_all_acgan[n_samples:],
-                    real_and_fake_labels[n_samples:],
-                    alpha=cfg.TRAIN.CROSS_ENTROPY_ALPHA, partial=True,
-                    normed=cfg.TRAIN.NORMED_CROSS_ENTROPY))
-                gen_costs_gs.append(gen_opt.compute_gradients(-tf.reduce_mean(disc_fake),
-                                                              var_list=params_with_name('generator')))
-                gen_acgan_costs_gs.append(gen_opt.compute_gradients(cross_entropy(
-                    disc_all_acgan[:n_samples],
-                    real_and_fake_labels[:n_samples],
-                    disc_all_acgan[n_samples:],
-                    real_and_fake_labels[n_samples:],
-                    alpha=cfg.TRAIN.CROSS_ENTROPY_ALPHA, partial=True,
-                    normed=cfg.TRAIN.NORMED_CROSS_ENTROPY), var_list=params_with_name('generator')))
+        # generator loss
+        self.cost_gen_wgan = - tf.reduce_mean(disc_wgan_all[:pos_middle])
+        self.cost_gen_acgan = self.cost_disc_acgan_fr
+        self.cost_gen = self.cfg.TRAIN.WGAN_SCALE_G * self.cost_gen_wgan \
+                        + self.cfg.TRAIN.ACGAN_SCALE_G * self.cost_gen_acgan
+        self.train_op_gen = gen_opt.minimize(self.cost_gen, var_list=params_with_name('generator'))
+        self.gv_gen = gen_opt.compute_gradients(self.cost_gen, var_list=params_with_name('generator'))
+        self.summary_gen = tf.summary.merge(
+            tf.summary.scalar('cost_gen_wgan', self.cost_gen_wgan),
+            tf.summary.scalar('cost_gen_acgan', self.cost_gen_acgan),
+            tf.summary.scalar('cost_gen', self.cost_gen),
+        )
 
         # set acgan_output
-        disc_real_acgan = []
-        disc_real_acgan_cost_t = []
-        for i, device in enumerate(DEVICES):
-            with tf.device(device):
-                real_data = all_real_data_splits[i]
-                real_labels = labels_splits[i]
+        self.disc_real_acgan = discriminator(labeled_real_data, stage='val', cfg=self.cfg)
 
-                _, _disc_real_acgan = discriminator(
-                    real_data, stage="val", cfg=cfg)
-                disc_real_acgan.append(_disc_real_acgan)
-
-                disc_real_acgan_cost_t.append(cross_entropy(
-                    _disc_real_acgan,
-                    real_labels,
-                    alpha=cfg.TRAIN.CROSS_ENTROPY_ALPHA,
-                    normed=cfg.TRAIN.NORMED_CROSS_ENTROPY))
-        disc_real_acgan_cost = tf.add_n(disc_real_acgan_cost_t) / len(DEVICES)
-
-        gen_cost = cfg.TRAIN.WGAN_SCALE_G * (tf.add_n(gen_costs) / len(DEVICES))
-        gen_gv = average_gradients(gen_costs_gs, cfg.TRAIN.WGAN_SCALE_G)
-        gen_cost += (cfg.TRAIN.ACGAN_SCALE_G *
-                     (tf.add_n(gen_acgan_costs) / len(DEVICES)))
-        gen_gv = gen_gv + average_gradients(gen_acgan_costs_gs, cfg.TRAIN.ACGAN_SCALE_G)
-
-        gen_train_op = gen_opt.apply_gradients(gen_gv)
-        disc_train_op = disc_opt.apply_gradients(disc_gv)
-
-        # Function for generating samples
-        noise_dim = 256 if cfg.DATA.USE_DATASET == "cifar10" else 128  # TODO: refactor
-        fixed_noise = tf.constant(np.random.normal(ize=(100, noise_dim)).astype('float32'))
+    def build_fixed_noise_samples(self):
+        noise_dim = 256 if self.cfg.DATA.USE_DATASET == "cifar10" else 128  # TODO: refactor
+        fixed_noise = tf.constant(np.random.normal(size=(100, noise_dim)).astype('float32'))
         fixed_labels = tf.reshape(tf.tile(tf.eye(10, 10, dtype=tf.int32), [1, 10]), (100, 10))
-        fixed_noise_samples = generator(100, fixed_labels, noise=fixed_noise, cfg=cfg)
+        self.fixed_noise_samples = generator(100, fixed_labels, noise=fixed_noise, cfg=self.cfg)
 
+    def gradient_penalty(self, real_data, fake_data):
+        shape = [2 * self.batch_size, 1]
+        reduction_indices = [1]
+        if self.cfg.MODEL.ARCHITECTURE == "ALEXNET":
+            shape += [1, 1]
+            reduction_indices += [2, 3]
+            real_data = preprocess_resize_scale_img(real_data, width_height=self.cfg.DATA.WIDTH_HEIGHT)
+            fake_data = preprocess_resize_scale_img(fake_data, width_height=self.cfg.DATA.WIDTH_HEIGHT)
+        alpha = tf.random_uniform(shape=shape, minvar=0, maxval=1)
+
+        interpolates = real_data + alpha * (fake_data - real_data)
+        gradients = tf.gradients(discriminator(interpolates, cfg=self.cfg)[0], [interpolates])[0]
+        slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=reduction_indices))
+        return tf.reduce_mean((slopes - 1.) ** 2)
+
+    @staticmethod
+    def normalize(x):
+        x = 2 * tf.cast(x, tf.float32) / 256. - 1
+        x += tf.random_uniform(shape=x.shape, minval=0., maxval=1. / 128)  # de-quantize
+        return x
+
+
+def main(cfg):
+    # build graph
+    model = Model(cfg)
+
+    # training
+    config_proto = tf.ConfigProto()
+    config_proto.gpu_options.allow_growth = True
+    config_proto.allow_soft_placement = True
+    with tf.Session(config=config_proto) as session:
+        summary_writer = tf.summary.FileWriter(cfg.DATA.LOG_DIR, session.graph)
+
+        dataloader = Dataloader(cfg.TRAIN.BATCH_SIZE, cfg.DATA.WIDTH_HEIGHT, cfg.DATA.LIST_ROOT, cfg.DATA.DATA_ROOT)
         gen = dataloader.inf_gen(dataloader.train_gen)
         unlabel_gen = dataloader.inf_gen(dataloader.unlabeled_db_gen)
 
-        print_param_size(gen_gv, disc_gv)
+        print_param_size(model.gv_gen, model.gv_disc)
 
         print("initializing global variables")
         session.run(tf.global_variables_initializer())
 
-        if len(cfg.MODEL.PRETRAINED_MODEL_PATH) > 0:
-            saver = tf.train.Saver(params_with_name('generator'))
-            import ipdb; ipdb.set_trace()
-            saver.restore(session, cfg.MODEL.PRETRAINED_MODEL_PATH)
+        saver_gen = tf.train.Saver(params_with_name('generator'))
+        saver_disc = tf.train.Saver(params_with_name('discriminator'))
+
+        if len(cfg.MODEL.PRETRAINED_MODEL_PATH) > 0:  # TODO: resume
+            saver_gen.restore(session, cfg.MODEL.PRETRAINED_MODEL_PATH)
             print("model restored")
 
         print("training")
         for iteration in range(cfg.TRAIN.ITERS):
             start_time = time.time()
 
+            def get_feed_dict():
+                labeled_data, labeled_labels = gen()
+                unlabeled_data, unlabeled_labels = unlabel_gen()
+                return {
+                    model.labeled_real_data_holder: labeled_data,
+                    model.unlabeled_real_data_holder: unlabeled_data,
+                    model.labeled_labels_holder: labeled_labels,
+                    model.unlabeled_labels_holder: unlabeled_labels,
+                    model._iteration: iteration
+                }
+
+            # train generator
             if iteration > 0 and cfg.TRAIN.G_LR != 0:
                 _data, _labels = gen()
-                _ = session.run([gen_train_op], feed_dict={
-                    all_real_data_int: _data,
-                    all_real_labels: _labels,
-                    _iteration: iteration,
-                })
+                summary_gen, _ = session.run([model.summary_gen, model.train_op_gen], feed_dict=get_feed_dict())
+                summary_writer.add_summary(summary_gen, iteration)
 
+            # train discriminator
             for i in range(cfg.TRAIN.N_CRITIC):
-                _data, _labels = gen()
-                _unlabel_data, _unlabel_labels = unlabel_gen()
-                if cfg.TRAIN.WGAN_SCALE == 0:
-                    _disc_cost, _disc_acgan, _disc_acgan_r_r, _ = session.run(
-                        [disc_cost, disc_acgan, disc_acgan_real_real,
-                         disc_train_op],
-                        feed_dict={
-                            all_real_data_int: _data,
-                            all_real_labels: _labels,
-                            all_unlabel_data_int: _unlabel_data,
-                            all_unlabel_labels: _unlabel_labels,
-                            _iteration: iteration,
-                        })
+                run_options, run_metadata = None, None
+                if iteration % 100 == 0 and i == 0:  # TODO: runtime meta frequency
+                    cost_disc, summary_disc, _ = session.run(
+                        [model.cost_disc, model.summary_disc, model.train_op_disc],
+                        feed_dict=get_feed_dict(),
+                        run_metadata=tf.RunMetadata(),
+                        options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE),
+                    )
+                    summary_writer.add_summary(summary_disc, iteration * cfg.TRAIN.N_CRITIC + i)
+                    summary_writer.add_run_metadata(run_metadata, 'step%d' % i)
                 else:
-                    _disc_cost, _disc_wgan, _disc_wgan_l, _disc_wgan_g, _disc_acgan, _disc_acgan_r_r, _ = session.run(
-                        [disc_cost, disc_wgan, disc_wgan_l, disc_wgan_gradient, disc_acgan, disc_acgan_real_real,
-                         disc_train_op],
-                        feed_dict={
-                            all_real_data_int: _data,
-                            all_real_labels: _labels,
-                            all_unlabel_data_int: _unlabel_data,
-                            all_unlabel_labels: _unlabel_labels,
-                            _iteration: iteration,
-                        })
+                    cost_disc, summary_disc, train_op_disc = session.run(
+                        [model.cost_disc, model.summary_disc, model.train_op_disc],
+                        feed_dict=get_feed_dict(), options=run_options, run_metadata=run_metadata
+                    )
+                    summary_writer.add_summary(summary_disc, iteration * cfg.TRAIN.N_CRITIC + i)
+            summary_writer.add_summary(scalar_summary(tag="time", value=time.time() - start_time), iteration)
 
-            plot.plot('cost', _disc_cost)
-            plot.plot('acgan_f', _disc_acgan - _disc_acgan_r_r)
-            plot.plot('acgan_r', _disc_acgan_r_r)
-
-            if cfg.TRAIN.WGAN_SCALE != 0:
-                plot.plot('wgan', _disc_wgan)
-                plot.plot('wgan_l', _disc_wgan_l)
-                plot.plot('wgan_g', _disc_wgan_g)
-            plot.plot('time', time.time() - start_time)
-
-            if (iteration + 1) % 1000 == 0:
-                samples = session.run(fixed_noise_samples)
+            # sample images
+            if (iteration + 1) % 1000 == 0:  # TODO: sample freq
+                samples = session.run(model.fixed_noise_samples)
                 samples = ((samples + 1.) * (255. / 2)).astype('int32')
                 save_images(samples.reshape((100, 3, cfg.DATA.WIDTH_HEIGHT, cfg.DATA.WIDTH_HEIGHT)),
                             '{}/samples_{}.png'.format(cfg.DATA.IMAGE_DIR, iteration))
 
             # calculate mAP score w.r.t all db data_list
             if (iteration + 1) % cfg.TRAIN.SAVE_FREQUENCY == 0 or iteration + 1 == cfg.TRAIN.ITERS:
-                
-                def forward_all(gen, size):
+
+                def forward_all(data_generator, size):
                     outputs, labels = [], []
-                    for image, label in gen():
-                        feed_dict = {all_real_data_int: image, all_real_labels: label}
-                        outputs.append(session.run(disc_real_acgan, feed_dict=feed_dict))
+                    for image, label in data_generator():
+                        feed_dict = {model.labeled_real_data_holder: image, model.labeled_labels_holder: label}
+                        outputs.append(session.run(model.disc_real_acgan, feed_dict=feed_dict))
                         labels.append(labels)
-                    outputs = np.reshape(np.array(outputs), [-1, cfg.MODEL.HASH_DIM])[:size, :])
-                    labels = np.reshape(np.array(labels), [-1, cfg.DATA.LABEL_DIM])[:size, :])
-                    return EasyDict(outputs=outputs, labels=labels)
+                    return EasyDict(outputs=np.reshape(np.array(outputs), [-1, cfg.MODEL.HASH_DIM])[:size, :],
+                                    labels=np.reshape(np.array(labels), [-1, cfg.DATA.LABEL_DIM])[:size, :])
 
-                db = forward_all(db_gen, cfg.DATA.DB_SIZE)
-                test = forward_all(test_gen, cfg.DATA.TEST_SIZE)
-                map_val = MAPs(cfg.DATA.MAP_R).get_mAPs_by_feature(db, test)
-                plot.plot("mAP_feature", map_val)
+                db = forward_all(dataloader.db_gen, cfg.DATA.DB_SIZE)
+                test = forward_all(dataloader.test_gen, cfg.DATA.TEST_SIZE)
+                map_val = MAPs(cfg.DATA.MAP_R).get_maps_by_feature(db, test)
+                summary_writer.add_summary(scalar_summary(tag="mAP_feature", value=map_val), iteration)
 
-                save_path = os.path.join(
-                    cfg.DATA.MODEL_DIR, "iteration_{}.ckpt".format(iteration))
-                tf.train.Saver().save(session, save_path)
-                print(("Model saved in file: %s" % save_path))
-
-            if (iteration < 500) or ((iteration+1) % 1000 == 0):
-                plot.flush(cfg.DATA.IMAGE_DIR)
-
-            plot.tick()
+                save_path_gen = os.path.join(cfg.DATA.MODEL_DIR, "G_{}.ckpt".format(iteration))
+                save_path_disc = os.path.join(cfg.DATA.MODEL_DIR, "D_{}.ckpt".format(iteration))
+                saver_gen.save(session, save_path_gen)
+                saver_disc.save(session, save_path_disc)
+                print("Model saved in file:")
+                print("\t- generator: {}".format(save_path_gen))
+                print("\t- discriminator: {}".format(save_path_disc))
 
 
 if __name__ == "__main__":

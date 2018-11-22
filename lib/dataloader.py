@@ -74,17 +74,6 @@ class Dataset(object):
                 self._label = np.asarray(self._label)
             return np.asarray(ret_img), np.asarray(ret_label)
 
-    @property
-    def img_all_data(self):
-        assert self._status
-        return self._img, self._label
-
-    def get_labels(self):
-        for i in range(self.n_samples):
-            if self._label[i] == 0:
-                self._label[i] = self.get_label(i)
-        return np.asarray(self._label)
-
 
 class Dataloader(object):
 

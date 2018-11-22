@@ -201,6 +201,7 @@ def good_discriminator(inputs, cfg):
 
 
 def alexnet_discriminator(inputs, cfg, stage="train"):
+    # noinspection PyTypeChecker
     net_data = dict(np.load(cfg.MODEL.ALEXNET_PRETRAINED_MODEL_PATH, encoding='latin1').item())
 
     if inputs.shape[1] != 256:
@@ -208,9 +209,7 @@ def alexnet_discriminator(inputs, cfg, stage="train"):
     else:
         reshaped_image = inputs
 
-    IMAGE_SIZE = 227
-    height = IMAGE_SIZE
-    width = IMAGE_SIZE
+    height = width = 227
 
     # Randomly crop a [height, width] section of each image
     if stage == "train":

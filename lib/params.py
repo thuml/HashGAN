@@ -7,6 +7,7 @@ locale.setlocale(locale.LC_ALL, '')
 _params = {}
 _param_aliases = {}
 
+
 def param(name, *args, **kwargs):
     """
     A wrapper for `tf.Variable` which enables parameter sharing in models.
@@ -23,9 +24,9 @@ def param(name, *args, **kwargs):
     if name not in _params:
         print(name)
         kwargs['name'] = name
-        param = tf.Variable(*args, **kwargs)
-        param.param = True
-        _params[name] = param
+        var = tf.Variable(*args, **kwargs)
+        var.param = True
+        _params[name] = var
     result = _params[name]
     i = 0
     while result in _param_aliases:
