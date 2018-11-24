@@ -1,32 +1,32 @@
 MODEL:
-    ARCHITECTURE: "ALEXNET"
-    PRETRAINED_MODEL_PATH: "output/cifar10_step_1/models/iteration_79999.ckpt"
-    ALEXNET_PRETRAINED_MODEL_PATH: "pretrained_models/reference_pretrain.npy"
+    G_ARCHITECTURE: "NORM"
+    D_ARCHITECTURE: "ALEXNET"
+    G_PRETRAINED_MODEL_PATH: ""
+    D_PRETRAINED_MODEL_PATH: "pretrained_models/reference_pretrain.npy"
 DATA:
     USE_DATASET: "cifar10"  # "cifar10", "nuswide81", "coco"
     LABEL_DIM: 10
     DB_SIZE: 54000
     TEST_SIZE: 1000
     WIDTH_HEIGHT: 32
-    OUTPUT_DIM: 3072 # Number of pixels (32*32*3)
     MAP_R: 54000
     LIST_ROOT: "./data_list/cifar10"
     DATA_ROOT: "./data/cifar10"
-    OUTPUT_DIR: "./output/cifar10_finetune"
-    IMAGE_DIR: "./output/cifar10_finetune/images"
-    MODEL_DIR: "./output/cifar10_finetune/models"
-    LOG_DIR: "./output/cifar10_finetune/logs"
+    OUTPUT_DIR: "./output/cifar10_finetune_acgan_scale_fake_0"
 
 TRAIN:
     BATCH_SIZE: 128
     ITERS: 10000
-    CROSS_ENTROPY_ALPHA: 5
+    CROSS_ENTROPY_ALPHA: 10
     LR: 1e-4  # Initial learning rate
     G_LR: 0.0  # 1e-4
     DECAY: True  # Whether to decay LR over learning
     N_CRITIC: 1  # Critic steps per generator steps
-    EVAL_FREQUENCY: 2000  # How frequently to save model
+    EVAL_FREQUENCY: 2000
+    SAMPLE_FREQUENCY: 1
     ACGAN_SCALE: 1.0
-    ACGAN_SCALE_G: 0.0
+    ACGAN_SCALE_FAKE: 0.0 # 1.0
     WGAN_SCALE: 0.0  
-    WGAN_SCALE_G: 0.0
+    WGAN_SCALE_GP: 10.0
+    ACGAN_SCALE_G: 0.1
+    WGAN_SCALE_G: 1.0

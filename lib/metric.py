@@ -13,7 +13,6 @@ class MAPs:
         ips = np.dot(query.output, database.output.T)
         ids = np.argsort(-ips, 1)
         apx = []
-        print("#calc mAPs# calculating mAPs")
         for i in range(ips.shape[0]):
             label = query.label[i, :].copy()
             label[label == 0] = -1
@@ -22,5 +21,4 @@ class MAPs:
             px = np.cumsum(imatch).astype(float) / np.arange(1, self.R + 1, 1)
             if rel != 0:
                 apx.append(np.sum(px * imatch) / rel)
-        print("mAPs: ", np.mean(np.array(apx)))
         return np.mean(np.array(apx))

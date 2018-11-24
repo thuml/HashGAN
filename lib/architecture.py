@@ -202,6 +202,7 @@ def good_discriminator(inputs, cfg):
 
 def alexnet_discriminator(inputs, cfg, stage="train"):
     # noinspection PyTypeChecker
+    # TODO: don't load imagenet pretrained model when D_PRETRAINED_MODEL_PATH is given
     net_data = dict(np.load(cfg.MODEL.ALEXNET_PRETRAINED_MODEL_PATH, encoding='latin1').item())
 
     if inputs.shape[1] != 256:
@@ -399,16 +400,16 @@ def alexnet_discriminator(inputs, cfg, stage="train"):
 
 
 def generator(n_samples, labels, cfg, noise=None):
-    if cfg.MODEL.ARCHITECTURE == "GOOD":
+    if cfg.MODEL.G_ARCHITECTURE == "GOOD":
         return good_generator(n_samples, labels, noise=noise, cfg=cfg)
     else:
         return old_generator(n_samples, labels, noise=noise, cfg=cfg)
 
 
 def discriminator(inputs, cfg, stage="train"):
-    if cfg.MODEL.ARCHITECTURE == "GOOD":
+    if cfg.MODEL.D_ARCHITECTURE == "GOOD":
         return good_discriminator(inputs, cfg=cfg)
-    elif cfg.MODEL.ARCHITECTURE == "ALEXNET":
+    elif cfg.MODEL.D_ARCHITECTURE == "ALEXNET":
         return alexnet_discriminator(inputs, stage=stage, cfg=cfg)
     else:
         return old_discriminator(inputs, cfg=cfg)
