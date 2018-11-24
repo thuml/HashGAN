@@ -6,7 +6,7 @@ Code for ["HashGAN: Deep Learning to Hash with Pair Conditional Wasserstein GAN"
 
 ## Prerequisites
 
-- Python3, NumPy, TensorFlow-gpu, SciPy, Matplotlib, easydict, yacs 
+- Python3, NumPy, TensorFlow-gpu, SciPy, Matplotlib, easydict, yacs, tqdm
 - A recent NVIDIA GPU
 
 ## Data Preparation

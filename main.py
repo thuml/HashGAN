@@ -20,6 +20,7 @@ from datetime import datetime
 import numpy as np
 import tensorflow as tf
 from easydict import EasyDict
+from tqdm import tqdm
 
 from lib.dataloader import Dataloader
 from lib.metric import MAPs
@@ -197,7 +198,7 @@ def main(cfg):
             return 0
 
         print("training")
-        for iteration in range(cfg.TRAIN.ITERS):
+        for iteration in tqdm(range(cfg.TRAIN.ITERS), desc='Training'):
             start_time = time.time()
 
             def get_feed_dict():
@@ -213,29 +214,14 @@ def main(cfg):
 
             # train generator
             if iteration > 0 and cfg.TRAIN.G_LR != 0:
-                _data, _labels = gen()
                 summary_gen, _ = session.run([model.summary_gen, model.train_op_gen], feed_dict=get_feed_dict())
                 summary_writer.add_summary(summary_gen, iteration)
 
             # train discriminator
             for i in range(cfg.TRAIN.N_CRITIC):
-                if iteration % cfg.TRAIN.RUNTIME_MEASURE_FREQUENCY == 0 and i == 0:
-                    run_metadata = tf.RunMetadata()
-                    cost_disc, summary_disc, _ = session.run(
-                        [model.cost_disc, model.summary_disc, model.train_op_disc],
-                        feed_dict=get_feed_dict(),
-                        run_metadata=run_metadata,
-                        options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE),
-                    )
-                    print('{}: [{}/{}], cost_disc={:.3f}'.format(str(datetime.now()), iteration, cfg.TRAIN.ITERS, cost_disc))
-                    summary_writer.add_summary(summary_disc, iteration * cfg.TRAIN.N_CRITIC + i)
-                    summary_writer.add_run_metadata(run_metadata, 'step%d' % iteration)
-                else:
-                    cost_disc, summary_disc, train_op_disc = session.run(
-                        [model.cost_disc, model.summary_disc, model.train_op_disc],
-                        feed_dict=get_feed_dict(),
-                    )
-                    summary_writer.add_summary(summary_disc, iteration * cfg.TRAIN.N_CRITIC + i)
+                summary_disc, _ = session.run([model.summary_disc, model.train_op_disc], feed_dict=get_feed_dict())
+                summary_writer.add_summary(summary_disc, iteration * cfg.TRAIN.N_CRITIC + i)
+
             summary_writer.add_summary(scalar_summary(tag="time", value=time.time() - start_time), iteration)
 
             # sample images

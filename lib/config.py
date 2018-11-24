@@ -41,7 +41,6 @@ config.TRAIN.DECAY = True  # Whether to decay LR over learning
 config.TRAIN.N_CRITIC = 5  # Critic steps per generator steps
 config.TRAIN.EVAL_FREQUENCY = 20000  # How frequently to evaluate and save model
 config.TRAIN.CHECKPOINT_FREQUENCY = 2000  # How frequently to evaluate and save model
-config.TRAIN.RUNTIME_MEASURE_FREQUENCY = 200  # How frequently to evaluate and save model
 config.TRAIN.SAMPLE_FREQUENCY = 1000  # How frequently to evaluate and save model
 config.TRAIN.ACGAN_SCALE = 1.0
 config.TRAIN.ACGAN_SCALE_FAKE = 1.0
