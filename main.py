@@ -121,7 +121,9 @@ class Model(object):
     def build_fixed_noise_samples(self):
         noise_dim = 256 if self.cfg.MODEL.G_ARCHITECTURE == "NORM" else 128
         fixed_noise = tf.constant(np.random.normal(size=(100, noise_dim)).astype('float32'))
-        fixed_labels = tf.reshape(tf.tile(tf.eye(10, 10, dtype=tf.int32), [1, 10]), (100, 10))
+        fixed_labels = tf.eye(10, self.cfg.DATA.LABEL_DIM, dtype=tf.int32)
+        fixed_labels = tf.reshape(tf.tile(fixed_labels, [1, 10]), (100, self.cfg.DATA.LABEL_DIM))
+
         self.fixed_noise_samples = generator(100, fixed_labels, noise=fixed_noise, cfg=self.cfg)
 
     def gradient_penalty(self, real_data, fake_data):

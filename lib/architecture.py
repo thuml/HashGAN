@@ -152,25 +152,18 @@ def good_generator(n_samples, labels, cfg, noise=None):
     if noise is None:
         noise = tf.random_normal([n_samples, 128])
 
-    noise = tf.concat([tf.cast(labels, tf.float32), tf.slice(
-        noise, [0, cfg.DATA.LABEL_DIM], [-1, -1])], 1)
+    noise = tf.concat([tf.cast(labels, tf.float32), tf.slice(noise, [0, cfg.DATA.LABEL_DIM], [-1, -1])], 1)
+    output = linear('generator.Input', 128, 4 * 4 * 8 * cfg.MODEL.DIM, noise)
+    output = tf.reshape(output, [-1, 8 * cfg.MODEL.DIM, 4, 4])
 
-    output = linear(
-        'generator.Input', 128, 4 * 4 * 8 * cfg.DATA.DIM, noise)
-    output = tf.reshape(output, [-1, 8 * cfg.DATA.DIM, 4, 4])
-
-    output = residual_block('generator.Res1', 8 * cfg.DATA.DIM,
-                            8 * cfg.DATA.DIM, 3, output, resample='up')
-    output = residual_block('generator.Res2', 8 * cfg.DATA.DIM,
-                            4 * cfg.DATA.DIM, 3, output, resample='up')
-    output = residual_block('generator.Res3', 4 * cfg.DATA.DIM,
-                            2 * cfg.DATA.DIM, 3, output, resample='up')
-    output = residual_block('generator.Res4', 2 * cfg.DATA.DIM,
-                            1 * cfg.DATA.DIM, 3, output, resample='up')
+    output = residual_block('generator.Res1', 8 * cfg.MODEL.DIM, 8 * cfg.MODEL.DIM, 3, output, resample='up')
+    output = residual_block('generator.Res2', 8 * cfg.MODEL.DIM, 4 * cfg.MODEL.DIM, 3, output, resample='up')
+    output = residual_block('generator.Res3', 4 * cfg.MODEL.DIM, 2 * cfg.MODEL.DIM, 3, output, resample='up')
+    output = residual_block('generator.Res4', 2 * cfg.MODEL.DIM, 1 * cfg.MODEL.DIM, 3, output, resample='up')
 
     output = normalize('generator.OutputN', output)
     output = tf.nn.relu(output)
-    output = conv2D('generator.Output', 1 * cfg.DATA.DIM, 3, 3, output)
+    output = conv2D('generator.Output', 1 * cfg.MODEL.DIM, 3, 3, output)
     output = tf.tanh(output)
 
     return tf.reshape(output, [-1, cfg.DATA.OUTPUT_DIM])
@@ -195,7 +188,7 @@ def good_discriminator(inputs, cfg):
         'discriminator.Output', 4 * 4 * 8 * cfg.MODEL.DIM, 1, output)
 
     output_acgan = linear(
-        'discriminator.ACGANOutput', 4 * 4 * 8 * cfg.MODEL.DIM, cfg.DIM.HASH_DIM, output)
+        'discriminator.ACGANOutput', 4 * 4 * 8 * cfg.MODEL.DIM, cfg.MODEL.HASH_DIM, output)
     output_acgan = tf.nn.tanh(output_acgan)
     return output_wgan, output_acgan
 

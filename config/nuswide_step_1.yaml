@@ -1,0 +1,31 @@
+MODEL:
+    G_ARCHITECTURE: "GOOD"
+    D_ARCHITECTURE: "GOOD"
+    G_PRETRAINED_MODEL_PATH: ''
+    D_PRETRAINED_MODEL_PATH: ''
+
+DATA:
+    USE_DATASET: "nuswide81"  # "cifar10", "nuswide81", "coco"
+    LABEL_DIM: 81
+    DB_SIZE: 168692 
+    TEST_SIZE: 5000 
+    WIDTH_HEIGHT: 64 
+    MAP_R: 5000 
+    LIST_ROOT: "./data_list/nuswide_81"
+    DATA_ROOT: "/home/liubin/data/nuswide_81"
+    OUTPUT_DIR: "./output/nuswide81_step_1"
+
+TRAIN:
+    BATCH_SIZE: 64
+    ITERS: 100000
+    CROSS_ENTROPY_ALPHA: 5
+    LR: 1e-4  # Initial learning rate
+    G_LR: 1e-4  # 1e-4
+    DECAY: True  # Whether to decay LR over learning
+    N_CRITIC: 5 # Critic steps per generator steps
+    EVAL_FREQUENCY: 10000  # How frequently to evaluate and save model
+    CHECKPOINT_FREQUENCY: 1000
+    ACGAN_SCALE: 1.0
+    ACGAN_SCALE_G: 0.3
+    WGAN_SCALE: 1.0  
+    WGAN_SCALE_G: 1.0
