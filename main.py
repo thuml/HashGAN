@@ -20,7 +20,7 @@ from datetime import datetime
 import numpy as np
 import tensorflow as tf
 from easydict import EasyDict
-from tqdm import tqdm
+from tqdm import trange
 
 from lib.dataloader import Dataloader
 from lib.metric import MAPs
@@ -198,7 +198,7 @@ def main(cfg):
             return 0
 
         print("training")
-        for iteration in tqdm(range(cfg.TRAIN.ITERS), desc='Training'):
+        for iteration in trange(cfg.TRAIN.ITERS, desc='Training'):
             start_time = time.time()
 
             def get_feed_dict():
