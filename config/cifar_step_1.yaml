@@ -3,6 +3,7 @@ MODEL:
     D_ARCHITECTURE: "NORM"
     G_PRETRAINED_MODEL_PATH: ''
     D_PRETRAINED_MODEL_PATH: ''
+
 DATA:
     USE_DATASET: "cifar10"  # "cifar10", "nuswide81", "coco"
     LABEL_DIM: 10
@@ -13,6 +14,7 @@ DATA:
     LIST_ROOT: "./data_list/cifar10"
     DATA_ROOT: "./data/cifar10"
     OUTPUT_DIR: "./output/cifar10_step_1_ACGAN_SCALE_G_10.0"
+
 TRAIN:
     BATCH_SIZE: 64
     ITERS: 100000

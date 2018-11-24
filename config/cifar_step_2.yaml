@@ -1,0 +1,33 @@
+MODEL:
+    G_ARCHITECTURE: "NORM"
+    D_ARCHITECTURE: "ALEXNET"
+    G_PRETRAINED_MODEL_PATH: ""
+    D_PRETRAINED_MODEL_PATH: ""
+
+DATA:
+    USE_DATASET: "cifar10"  # "cifar10", "nuswide81", "coco"
+    LABEL_DIM: 10
+    DB_SIZE: 54000
+    TEST_SIZE: 1000
+    WIDTH_HEIGHT: 32
+    MAP_R: 54000
+    LIST_ROOT: "./data_list/cifar10"
+    DATA_ROOT: "./data/cifar10"
+    OUTPUT_DIR: "./output/cifar10_finetune"
+
+TRAIN:
+    BATCH_SIZE: 128
+    ITERS: 10000
+    CROSS_ENTROPY_ALPHA: 10
+    LR: 1e-4  # Initial learning rate
+    G_LR: 0.0  # 1e-4
+    DECAY: True  # Whether to decay LR over learning
+    N_CRITIC: 1  # Critic steps per generator steps
+    EVAL_FREQUENCY: 2000
+    SAMPLE_FREQUENCY: 1
+    ACGAN_SCALE: 1.0
+    ACGAN_SCALE_FAKE: 1.0
+    WGAN_SCALE: 0.0  
+    WGAN_SCALE_GP: 10.0
+    ACGAN_SCALE_G: 0.1
+    WGAN_SCALE_G: 1.0
