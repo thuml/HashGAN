@@ -9,8 +9,9 @@ Code for CVPR 2018 Paper ["HashGAN: Deep Learning to Hash with Pair Conditional 
 - Python3, NumPy, TensorFlow-gpu, SciPy, Matplotlib, OpenCV, easydict, yacs, tqdm
 - A recent NVIDIA GPU
 
-We provide a `environment.yaml` for you and you can simplely use `conda env create -f environment.yml` to create the environment
+We provide a `environment.yaml` for you and you can simplely use `conda env create -f environment.yml` to create the environment.
 
+Or you can create the environment from scratch:
 ```bash
 conda create --no-default-packages -n HashGAN python=3.6 && source activate HashGAN
 conda install -y numpy scipy matplotlib  tensorflow-gpu opencv
