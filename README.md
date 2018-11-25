@@ -26,7 +26,9 @@ You can download the whole cifar10 dataset including the images and data list fr
 If you need run on NUSWIDE_81 and COCO, we recommend you to follow [here](https://github.com/thuml/HashNet/tree/master/pytorch#datasets) to prepare NUSWIDE_81 and COCO images.
 
 ## Pretrained Models
-You can download the pretrained models in the [release page](https://github.com/thuml/HashGAN/releases) and modify config file to use the pretrained models.
+
+The imagenet pretrained Alexnet model can be downloaded [here](https://github.com/thulab/DeepHash/releases/download/v0.1/reference_pretrain.npy.zip).
+You can download the pretrained Generator models in the [release page](https://github.com/thuml/HashGAN/releases) and modify config file to use the pretrained models.
 
 ## Training
 
