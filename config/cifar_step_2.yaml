@@ -1,7 +1,7 @@
 MODEL:
     G_ARCHITECTURE: "NORM"
     D_ARCHITECTURE: "ALEXNET"
-    G_PRETRAINED_MODEL_PATH: ""
+    G_PRETRAINED_MODEL_PATH: "./output/cifar10_step_1_ACGAN_SCALE_G_0.3/models/G_99999.ckpt"
     D_PRETRAINED_MODEL_PATH: ""
 
 DATA:
@@ -24,7 +24,7 @@ TRAIN:
     DECAY: True  # Whether to decay LR over learning
     N_CRITIC: 1  # Critic steps per generator steps
     EVAL_FREQUENCY: 2000
-    SAMPLE_FREQUENCY: 1
+    SAMPLE_FREQUENCY: 2000
     ACGAN_SCALE: 1.0
     ACGAN_SCALE_FAKE: 1.0
     WGAN_SCALE: 0.0  

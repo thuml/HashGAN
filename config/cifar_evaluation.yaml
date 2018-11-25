@@ -12,7 +12,7 @@ DATA:
     MAP_R: 54000
     LIST_ROOT: "./data_list/cifar10"
     DATA_ROOT: "./data/cifar10"
-    OUTPUT_DIR: "./output/cifar10_finetune_debug"
+    OUTPUT_DIR: "./output/cifar10_evaluation"
 
 TRAIN:
     EVALUATE_MODE: True
